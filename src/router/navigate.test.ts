@@ -59,11 +59,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should navigate to calendar", () => {
-      navigateToLabel("calendar");
-      expect(mockNavigate).toHaveBeenCalledWith({ to: "/calendar" });
-    });
-
     it("should navigate to smart folders", () => {
       navigateToLabel("smart-folder:folder-1");
       expect(mockNavigate).toHaveBeenCalledWith({
@@ -220,7 +215,7 @@ describe("navigate", () => {
     });
 
     it("should go to inbox when not on a thread route", () => {
-      mockState.location.pathname = "/calendar";
+      mockState.location.pathname = "/attachments";
       navigateBack();
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/mail/$label",
@@ -274,11 +269,6 @@ describe("navigate", () => {
         { routeId: "/settings/$tab", params: { tab: "general" } },
       ];
       expect(getActiveLabel()).toBe("settings");
-    });
-
-    it("should return 'calendar' from calendar route", () => {
-      mockState.matches = [{ routeId: "/calendar", params: {} }];
-      expect(getActiveLabel()).toBe("calendar");
     });
 
     it("should return 'inbox' as fallback", () => {

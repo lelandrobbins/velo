@@ -7,7 +7,7 @@ const SYSTEM_LABELS = new Set([
 
 /**
  * Navigate to a label/view. Handles routing for system labels, custom labels,
- * smart folders, and special views (settings, calendar).
+ * smart folders, and special views (settings).
  */
 export function navigateToLabel(
   label: string,
@@ -20,11 +20,6 @@ export function navigateToLabel(
 
   if (label === "attachments") {
     router.navigate({ to: "/attachments" });
-    return;
-  }
-
-  if (label === "calendar") {
-    router.navigate({ to: "/calendar" });
     return;
   }
 
@@ -194,9 +189,6 @@ export function getActiveLabel(): string {
     }
     if (match.routeId === "/attachments") {
       return "attachments";
-    }
-    if (match.routeId === "/calendar") {
-      return "calendar";
     }
   }
   return "inbox";

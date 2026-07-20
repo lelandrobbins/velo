@@ -847,13 +847,13 @@ export function SettingsPage() {
               {activeTab === "accounts" && (
                 <>
                   <Section title="Mail Accounts">
-                    {accounts.filter((a) => a.provider !== "caldav").length === 0 ? (
+                    {accounts.length === 0 ? (
                       <p className="text-sm text-text-tertiary">
                         No mail accounts connected
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {accounts.filter((a) => a.provider !== "caldav").map((account) => {
+                        {accounts.map((account) => {
                           const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
                           return (
                             <div
@@ -906,40 +906,7 @@ export function SettingsPage() {
                     )}
                   </Section>
 
-                  {accounts.some((a) => a.provider === "caldav") && (
-                    <Section title="Calendar Accounts">
-                      <div className="space-y-2">
-                        {accounts.filter((a) => a.provider === "caldav").map((account) => (
-                          <div
-                            key={account.id}
-                            className="flex items-center justify-between py-2.5 px-4 bg-bg-secondary rounded-lg"
-                          >
-                            <div>
-                              <div className="text-sm font-medium text-text-primary flex items-center gap-2">
-                                {account.displayName ?? account.email}
-                                <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-accent/10 text-accent">
-                                  CalDAV
-                                </span>
-                              </div>
-                              <div className="text-xs text-text-tertiary">
-                                {account.email}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleRemoveAccount(account.id)}
-                              className="text-xs text-danger hover:text-danger/80 transition-colors"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-                  )}
-
                   <SendAsAliasesSection />
-
-                  <ImapCalDavSection />
 
                   <Section title="Google API">
                     <div className="space-y-3">
@@ -1985,47 +1952,6 @@ function ShortcutsTab() {
       ))}
     </>
   );
-}
-
-function ImapCalDavSection() {
-  const accounts = useAccountStore((s) => s.accounts);
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
-  const [account, setAccount] = useState<import("@/services/db/accounts").DbAccount | null>(null);
-
-  useEffect(() => {
-    if (!activeAccountId) return;
-    import("@/services/db/accounts").then(({ getAccount }) => {
-      getAccount(activeAccountId).then(setAccount);
-    });
-  }, [activeAccountId]);
-
-  const activeUiAccount = accounts.find((a) => a.id === activeAccountId);
-  const isImap = activeUiAccount?.provider === "imap";
-
-  if (!isImap || !account) return null;
-
-  return (
-    <Section title="Calendar (CalDAV)">
-      <CalDavSettingsInline account={account} onSaved={() => {
-        // Reload account
-        import("@/services/db/accounts").then(({ getAccount }) => {
-          getAccount(account.id).then(setAccount);
-        });
-      }} />
-    </Section>
-  );
-}
-
-function CalDavSettingsInline({ account, onSaved }: { account: import("@/services/db/accounts").DbAccount; onSaved: () => void }) {
-  const [CalDav, setCalDav] = useState<typeof import("@/components/settings/CalDavSettings").CalDavSettings | null>(null);
-
-  useEffect(() => {
-    import("@/components/settings/CalDavSettings").then((m) => setCalDav(() => m.CalDavSettings));
-  }, []);
-
-  if (!CalDav) return <div className="text-xs text-text-tertiary">Loading...</div>;
-
-  return <CalDav account={account} onSaved={onSaved} />;
 }
 
 function SidebarNavEditor() {

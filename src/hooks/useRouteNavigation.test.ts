@@ -70,11 +70,6 @@ describe("useRouteNavigation hooks", () => {
       expect(useActiveLabel()).toBe("settings");
     });
 
-    it("should return 'calendar' from calendar route", () => {
-      setMatches([{ routeId: "/calendar", params: {} }]);
-      expect(useActiveLabel()).toBe("calendar");
-    });
-
     it("should return 'inbox' as fallback when no matches", () => {
       setMatches([]);
       expect(useActiveLabel()).toBe("inbox");

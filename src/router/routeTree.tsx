@@ -10,7 +10,6 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 // Lazy-load heavy pages — these include many sub-components and service imports
 const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
-const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
 
 // ---------- Search param validation ----------
@@ -61,16 +60,6 @@ function SettingsTabPage() {
     <ErrorBoundary name="SettingsPage">
       <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading settings...</div>}>
         <SettingsPage />
-      </Suspense>
-    </ErrorBoundary>
-  );
-}
-
-function CalendarPageWrapper() {
-  return (
-    <ErrorBoundary name="CalendarPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading calendar...</div>}>
-        <CalendarPage />
       </Suspense>
     </ErrorBoundary>
   );
@@ -151,13 +140,6 @@ export const attachmentsRoute = createRoute({
   component: AttachmentLibraryWrapper,
 });
 
-// ---------- /calendar ----------
-export const calendarRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "calendar",
-  component: CalendarPageWrapper,
-});
-
 // ---------- Route tree ----------
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -167,5 +149,4 @@ export const routeTree = rootRoute.addChildren([
   settingsIndexRoute,
   settingsTabRoute,
   attachmentsRoute,
-  calendarRoute,
 ]);
