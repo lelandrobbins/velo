@@ -171,7 +171,7 @@ SQLite via Tauri SQL plugin. 19 migrations, 35 tables total.
 
 Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `send_as_aliases`, `link_scan_results`, `phishing_allowlist`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence).
 
-**Dormant tables** (schema-only leftovers from removed features; `migrations.ts` is never edited retroactively so these are never dropped, and no service code reads/writes them): `ai_cache`, `thread_categories`, `calendar_events`, `calendars`, `bundle_rules`, `bundled_threads`, `smart_folders`, `quick_steps`, `writing_style_profiles`, `tasks`, `task_tags`, `smart_label_rules`.
+**Dormant tables** (schema-only leftovers from removed features; `migrations.ts` is never edited retroactively so these are never dropped) with no reachable code path at runtime: `ai_cache` (`db/aiCache.ts` still defines queries for it but is kept, currently caller-less, as part of the AI provider plumbing for future features), `thread_categories`, `calendar_events`, `calendars`, `bundle_rules`, `bundled_threads`, `smart_folders`, `quick_steps`, `writing_style_profiles`, `tasks`, `task_tags`, `smart_label_rules`.
 
 ## Startup Sequence
 
