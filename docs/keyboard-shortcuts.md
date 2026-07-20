@@ -13,13 +13,6 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `g` then `s` | Go to Starred |
 | `g` then `t` | Go to Sent |
 | `g` then `d` | Go to Drafts |
-| `g` then `p` | Go to Primary |
-| `g` then `u` | Go to Updates |
-| `g` then `o` | Go to Promotions |
-| `g` then `c` | Go to Social |
-| `g` then `n` | Go to Newsletters |
-| `g` then `k` | Go to Tasks |
-| `g` then `a` | Go to Attachments |
 
 ## Actions
 
@@ -36,7 +29,6 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `#` | Trash (permanent delete if already in trash) |
 | `!` | Spam / not spam |
 | `u` | Unsubscribe |
-| `t` | Create task from email (AI) |
 | `v` | Move to folder/label |
 | `Ctrl+Enter` | Send email |
 | `Ctrl+A` | Select all threads |
@@ -55,7 +47,6 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 |-----|--------|
 | `/` or `Ctrl+K` | Command palette |
 | `?` | Keyboard shortcuts help |
-| `i` | Ask Inbox (AI) |
 | `F5` | Sync current folder |
 | `Ctrl+Shift+E` | Toggle sidebar |
 
