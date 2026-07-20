@@ -85,20 +85,6 @@ export const labelThreadRoute = createRoute({
   path: "thread/$threadId",
 });
 
-// ---------- /smart-folder/$folderId ----------
-export const smartFolderRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "smart-folder/$folderId",
-  validateSearch: validateMailSearch,
-  component: MailPage,
-});
-
-// ---------- /smart-folder/$folderId/thread/$threadId ----------
-export const smartFolderThreadRoute = createRoute({
-  getParentRoute: () => smartFolderRoute,
-  path: "thread/$threadId",
-});
-
 // ---------- /settings (redirect to /settings/general) ----------
 const settingsIndexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -120,7 +106,6 @@ export const routeTree = rootRoute.addChildren([
   indexRoute,
   mailRoute.addChildren([mailThreadRoute]),
   labelRoute.addChildren([labelThreadRoute]),
-  smartFolderRoute.addChildren([smartFolderThreadRoute]),
   settingsIndexRoute,
   settingsTabRoute,
 ]);

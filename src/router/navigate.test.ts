@@ -59,22 +59,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should navigate to smart folders", () => {
-      navigateToLabel("smart-folder:folder-1");
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId",
-        params: { folderId: "folder-1" },
-      });
-    });
-
-    it("should navigate to smart folder with thread", () => {
-      navigateToLabel("smart-folder:folder-1", { threadId: "t-1" });
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId/thread/$threadId",
-        params: { folderId: "folder-1", threadId: "t-1" },
-      });
-    });
-
     it("should navigate to custom labels via /label/$labelId", () => {
       navigateToLabel("Label_123");
       expect(mockNavigate).toHaveBeenCalledWith({
@@ -110,16 +94,6 @@ describe("navigate", () => {
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/label/$labelId/thread/$threadId",
         params: { labelId: "Label_5", threadId: "thread-abc" },
-        search: {},
-      });
-    });
-
-    it("should append thread to /smart-folder/$folderId route", () => {
-      mockState.location.pathname = "/smart-folder/sf-1";
-      navigateToThread("thread-abc");
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId/thread/$threadId",
-        params: { folderId: "sf-1", threadId: "thread-abc" },
         search: {},
       });
     });
@@ -186,17 +160,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should go to parent /smart-folder/$folderId from thread route", () => {
-      mockState.location.pathname = "/smart-folder/sf-1/thread/t-1";
-      mockState.location.search = {};
-      navigateBack();
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId",
-        params: { folderId: "sf-1" },
-        search: {},
-      });
-    });
-
     it("should go to inbox when not on a thread route", () => {
       mockState.location.pathname = "/attachments";
       navigateBack();
@@ -238,13 +201,6 @@ describe("navigate", () => {
         { routeId: "/label/$labelId", params: { labelId: "Label_42" } },
       ];
       expect(getActiveLabel()).toBe("Label_42");
-    });
-
-    it("should return smart-folder: prefix from smart folder route", () => {
-      mockState.matches = [
-        { routeId: "/smart-folder/$folderId", params: { folderId: "sf-1" } },
-      ];
-      expect(getActiveLabel()).toBe("smart-folder:sf-1");
     });
 
     it("should return 'settings' from settings route", () => {

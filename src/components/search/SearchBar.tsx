@@ -1,23 +1,14 @@
-import { useState, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { searchMessages } from "@/services/db/search";
 import { useAccountStore } from "@/stores/accountStore";
 import { useThreadStore } from "@/stores/threadStore";
-import { useSmartFolderStore } from "@/stores/smartFolderStore";
-import { InputDialog } from "@/components/ui/InputDialog";
-import { Search, X, FolderPlus } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 export function SearchBar() {
   const searchQuery = useThreadStore((s) => s.searchQuery);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [showSaveModal, setShowSaveModal] = useState(false);
-
-  const handleSaveAsSmartFolder = useCallback(() => {
-    if (useThreadStore.getState().searchQuery.trim().length < 2) return;
-    setShowSaveModal(true);
-  }, []);
 
   const handleChange = useCallback(
     (value: string) => {
@@ -73,15 +64,6 @@ export function SearchBar() {
       />
       {searchQuery && (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {searchQuery.trim().length >= 2 && (
-            <button
-              onClick={handleSaveAsSmartFolder}
-              className="text-text-tertiary hover:text-accent transition-colors"
-              title="Save as Smart Folder"
-            >
-              <FolderPlus size={14} />
-            </button>
-          )}
           <button
             onClick={handleClear}
             className="text-text-tertiary hover:text-text-primary transition-colors"
@@ -90,18 +72,6 @@ export function SearchBar() {
           </button>
         </div>
       )}
-      <InputDialog
-        isOpen={showSaveModal}
-        onClose={() => setShowSaveModal(false)}
-        onSubmit={(values) => {
-          useSmartFolderStore.getState().createFolder(values.name!.trim(), useThreadStore.getState().searchQuery.trim(), activeAccountId ?? undefined);
-        }}
-        title="Save as Smart Folder"
-        fields={[
-          { key: "name", label: "Name", defaultValue: searchQuery.trim() },
-        ]}
-        submitLabel="Save"
-      />
     </div>
   );
 }

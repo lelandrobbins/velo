@@ -7,7 +7,7 @@ const SYSTEM_LABELS = new Set([
 
 /**
  * Navigate to a label/view. Handles routing for system labels, custom labels,
- * smart folders, and special views (settings).
+ * and special views (settings).
  */
 export function navigateToLabel(
   label: string,
@@ -15,22 +15,6 @@ export function navigateToLabel(
 ): void {
   if (label === "settings") {
     router.navigate({ to: "/settings/$tab", params: { tab: "general" } });
-    return;
-  }
-
-  if (label.startsWith("smart-folder:")) {
-    const folderId = label.replace("smart-folder:", "");
-    if (opts?.threadId) {
-      router.navigate({
-        to: "/smart-folder/$folderId/thread/$threadId",
-        params: { folderId, threadId: opts.threadId },
-      });
-    } else {
-      router.navigate({
-        to: "/smart-folder/$folderId",
-        params: { folderId },
-      });
-    }
     return;
   }
 
@@ -96,17 +80,6 @@ export function navigateToThread(threadId: string): void {
     return;
   }
 
-  // On a smart folder route
-  const sfMatch = pathname.match(/^\/smart-folder\/([^/]+)/);
-  if (sfMatch) {
-    router.navigate({
-      to: "/smart-folder/$folderId/thread/$threadId",
-      params: { folderId: sfMatch[1]!, threadId },
-      search: location.search as Record<string, string>,
-    });
-    return;
-  }
-
   // Fallback: navigate to inbox with thread
   router.navigate({
     to: "/mail/$label/thread/$threadId",
@@ -149,16 +122,6 @@ export function navigateBack(): void {
     return;
   }
 
-  const sfThreadMatch = pathname.match(/^\/smart-folder\/([^/]+)\/thread\//);
-  if (sfThreadMatch) {
-    router.navigate({
-      to: "/smart-folder/$folderId",
-      params: { folderId: sfThreadMatch[1]! },
-      search: location.search as Record<string, string>,
-    });
-    return;
-  }
-
   // Not on a thread route — navigate to inbox
   router.navigate({ to: "/mail/$label", params: { label: "inbox" } });
 }
@@ -174,9 +137,6 @@ export function getActiveLabel(): string {
     }
     if (match.routeId === "/label/$labelId" || match.routeId === "/label/$labelId/thread/$threadId") {
       return (match.params as { labelId: string }).labelId;
-    }
-    if (match.routeId === "/smart-folder/$folderId" || match.routeId === "/smart-folder/$folderId/thread/$threadId") {
-      return `smart-folder:${(match.params as { folderId: string }).folderId}`;
     }
     if (match.routeId === "/settings/$tab" || match.routeId === "/settings") {
       return "settings";

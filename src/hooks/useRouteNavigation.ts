@@ -25,9 +25,6 @@ export function useActiveLabel(): string {
     if (match.routeId === "/label/$labelId" || match.routeId === "/label/$labelId/thread/$threadId") {
       return (match.params as { labelId: string }).labelId;
     }
-    if (match.routeId === "/smart-folder/$folderId" || match.routeId === "/smart-folder/$folderId/thread/$threadId") {
-      return `smart-folder:${(match.params as { folderId: string }).folderId}`;
-    }
     if (match.routeId === "/settings/$tab" || match.routeId === "/settings") {
       return "settings";
     }

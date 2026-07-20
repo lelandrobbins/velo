@@ -54,11 +54,6 @@ describe("useRouteNavigation hooks", () => {
       expect(useActiveLabel()).toBe("Label_42");
     });
 
-    it("should return smart-folder: prefix from smart folder route", () => {
-      setMatches([{ routeId: "/smart-folder/$folderId", params: { folderId: "sf-1" } }]);
-      expect(useActiveLabel()).toBe("smart-folder:sf-1");
-    });
-
     it("should return 'settings' from settings route", () => {
       setMatches([{ routeId: "/settings/$tab", params: { tab: "general" } }]);
       expect(useActiveLabel()).toBe("settings");
