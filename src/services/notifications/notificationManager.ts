@@ -156,8 +156,8 @@ export function shouldNotifyForMessage(
   fromAddress?: string,
 ): boolean {
   if (!smartEnabled) return true; // Smart notifications off → notify everything
-  if (fromAddress && vipSenders.has(normalizeEmail(fromAddress))) return true; // VIP always notifies
-  return false;
+  if (vipSenders.size === 0) return true; // No VIPs configured → nothing to filter by, notify everything
+  return !!fromAddress && vipSenders.has(normalizeEmail(fromAddress)); // VIPs configured → only they notify
 }
 
 /**

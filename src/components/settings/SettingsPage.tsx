@@ -593,7 +593,7 @@ export function SettingsPage() {
                     />
                     <ToggleRow
                       label="Smart notifications"
-                      description="Only notify for VIP senders"
+                      description="When VIPs are configured, only they trigger notifications"
                       checked={smartNotifications}
                       onToggle={async () => {
                         const newVal = !smartNotifications;
