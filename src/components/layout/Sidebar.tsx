@@ -27,7 +27,6 @@ import {
   Tag,
   ChevronDown,
   ChevronUp,
-  HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -616,19 +615,6 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         >
           <Settings size={18} className="shrink-0" />
           {!collapsed && <span>Settings</span>}
-        </button>
-        <button
-          onClick={() => navigateToLabel("help")}
-          className={`flex items-center text-sm rounded-md transition-colors ${
-            collapsed ? "p-2 justify-center" : "p-2"
-          } ${
-            activeLabel === "help"
-              ? "bg-accent/10 text-accent font-medium"
-              : "text-sidebar-text hover:bg-sidebar-hover"
-          }`}
-          title="Help"
-        >
-          <HelpCircle size={18} className="shrink-0" />
         </button>
         <button
           onClick={toggleSidebar}

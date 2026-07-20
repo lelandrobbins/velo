@@ -10,7 +10,6 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 // Lazy-load heavy pages — these include many sub-components and service imports
 const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
-const HelpPage = lazy(() => import("@/components/help/HelpPage").then((m) => ({ default: m.HelpPage })));
 const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 const TasksPage = lazy(() => import("@/components/tasks/TasksPage").then((m) => ({ default: m.TasksPage })));
 const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
@@ -73,16 +72,6 @@ function CalendarPageWrapper() {
     <ErrorBoundary name="CalendarPage">
       <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading calendar...</div>}>
         <CalendarPage />
-      </Suspense>
-    </ErrorBoundary>
-  );
-}
-
-function HelpPageWrapper() {
-  return (
-    <ErrorBoundary name="HelpPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading help...</div>}>
-        <HelpPage />
       </Suspense>
     </ErrorBoundary>
   );
@@ -187,22 +176,6 @@ export const calendarRoute = createRoute({
   component: CalendarPageWrapper,
 });
 
-// ---------- /help (redirect to /help/getting-started) ----------
-const helpIndexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "help",
-  beforeLoad: () => {
-    throw redirect({ to: "/help/$topic", params: { topic: "getting-started" } });
-  },
-});
-
-// ---------- /help/$topic ----------
-export const helpTopicRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "help/$topic",
-  component: HelpPageWrapper,
-});
-
 // ---------- Route tree ----------
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -214,6 +187,4 @@ export const routeTree = rootRoute.addChildren([
   attachmentsRoute,
   tasksRoute,
   calendarRoute,
-  helpIndexRoute,
-  helpTopicRoute,
 ]);
