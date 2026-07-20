@@ -37,11 +37,6 @@ vi.mock("../filters/filterEngine", () => ({
 vi.mock("@/services/ai/categorizationManager", () => ({
   categorizeNewThreads: vi.fn(),
 }));
-vi.mock("@/services/db/bundleRules", () => ({
-  getBundleRule: vi.fn().mockResolvedValue(null),
-  holdThread: vi.fn(),
-  getNextDeliveryTime: vi.fn(),
-}));
 vi.mock("@/services/db/pendingOperations", () => ({
   getPendingOpsForResource: vi.fn().mockResolvedValue([]),
 }));

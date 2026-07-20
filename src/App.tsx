@@ -33,10 +33,6 @@ import {
   startFollowUpChecker,
   stopFollowUpChecker,
 } from "./services/followup/followupManager";
-import {
-  startBundleChecker,
-  stopBundleChecker,
-} from "./services/bundles/bundleManager";
 import { initNotifications } from "./services/notifications/notificationManager";
 import {
   initGlobalShortcut,
@@ -318,11 +314,10 @@ export default function App() {
           startBackgroundSync(activeIds);
         }
 
-        // Start snooze, scheduled send, follow-up, bundle, and queue checkers
+        // Start snooze, scheduled send, follow-up, and queue checkers
         startSnoozeChecker();
         startScheduledSendChecker();
         startFollowUpChecker();
-        startBundleChecker();
         startQueueProcessor();
         startPreCacheManager();
 
@@ -354,7 +349,6 @@ export default function App() {
       stopSnoozeChecker();
       stopScheduledSendChecker();
       stopFollowUpChecker();
-      stopBundleChecker();
       stopQueueProcessor();
       stopPreCacheManager();
       stopUpdateChecker();

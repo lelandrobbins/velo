@@ -92,21 +92,6 @@ async function processAndStoreThread(
           console.error(`Failed to auto-archive thread ${thread.id}:`, err);
         }
       }
-
-      // Hold thread if delivery schedule is active for this category
-      if (category !== "Primary") {
-        try {
-          const { getBundleRule, holdThread, getNextDeliveryTime } = await import("@/services/db/bundleRules");
-          const rule = await getBundleRule(accountId, category);
-          if (rule?.delivery_enabled && rule.delivery_schedule) {
-            const schedule = JSON.parse(rule.delivery_schedule);
-            const heldUntil = getNextDeliveryTime(schedule);
-            await holdThread(accountId, thread.id, category, heldUntil);
-          }
-        } catch (err) {
-          console.error(`Failed to check bundle rule for thread ${thread.id}:`, err);
-        }
-      }
     }
   }
 
