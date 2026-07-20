@@ -11,7 +11,6 @@ export {
   createMockImapFolderStatus,
   createMockImapFetchResult,
   createMockImapFolderSyncResult,
-  createMockQuickStep,
   createMockSendAsAlias,
 } from "./entities.mock";
 export {

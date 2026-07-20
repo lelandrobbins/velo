@@ -9,7 +9,6 @@ import type {
   ImapFetchResult,
   ImapFolderSyncResult,
 } from "@/services/imap/tauriCommands";
-import type { QuickStep } from "@/services/quickSteps/types";
 import type { SendAsAlias } from "@/services/db/sendAsAliases";
 
 export function createMockParsedMessage(
@@ -290,25 +289,6 @@ export function createMockImapFolderSyncResult(
       exists: messages.length,
       ...statusOverrides,
     }),
-  };
-}
-
-export function createMockQuickStep(
-  overrides: Partial<QuickStep> = {},
-): QuickStep {
-  return {
-    id: "qs-1",
-    accountId: "acct-1",
-    name: "Test Quick Step",
-    description: null,
-    shortcut: null,
-    actions: [],
-    icon: null,
-    isEnabled: true,
-    continueOnError: false,
-    sortOrder: 0,
-    createdAt: Date.now(),
-    ...overrides,
   };
 }
 
