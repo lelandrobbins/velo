@@ -91,23 +91,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should pass category as search param for system labels", () => {
-      navigateToLabel("inbox", { category: "Updates" });
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/mail/$label",
-        params: { label: "inbox" },
-        search: { category: "Updates" },
-      });
-    });
-
-    it("should navigate to system label with thread and category", () => {
-      navigateToLabel("inbox", { category: "Social", threadId: "t-1" });
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/mail/$label/thread/$threadId",
-        params: { label: "inbox", threadId: "t-1" },
-        search: { category: "Social" },
-      });
-    });
   });
 
   describe("navigateToThread", () => {
@@ -152,12 +135,12 @@ describe("navigate", () => {
 
     it("should preserve search params when navigating to thread", () => {
       mockState.location.pathname = "/mail/inbox";
-      mockState.location.search = { category: "Updates" };
+      mockState.location.search = { q: "hello" };
       navigateToThread("thread-abc");
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/mail/$label/thread/$threadId",
         params: { label: "inbox", threadId: "thread-abc" },
-        search: { category: "Updates" },
+        search: { q: "hello" },
       });
     });
   });
@@ -225,12 +208,12 @@ describe("navigate", () => {
 
     it("should preserve search params when navigating back", () => {
       mockState.location.pathname = "/mail/inbox/thread/t-1";
-      mockState.location.search = { category: "Social" };
+      mockState.location.search = { q: "hello" };
       navigateBack();
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/mail/$label",
         params: { label: "inbox" },
-        search: { category: "Social" },
+        search: { q: "hello" },
       });
     });
   });

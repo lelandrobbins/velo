@@ -30,14 +30,12 @@ import {
   ExternalLink,
   Pencil,
   Copy,
-  Layers,
   VolumeX,
   Code,
   RefreshCw,
 } from "lucide-react";
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
-import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
 
 function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
   const date = new Date(msg.date).toLocaleString();
@@ -520,21 +518,6 @@ function ThreadMenu({
       action: () => {
         window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [...targetIds] } }));
       },
-    },
-    {
-      id: "move-to-category",
-      label: "Move to Category",
-      icon: Layers,
-      children: ALL_CATEGORIES.map((cat) => ({
-        id: `cat-${cat}`,
-        label: cat,
-        action: async () => {
-          for (const id of targetIds) {
-            await setThreadCategory(activeAccountId, id, cat, true);
-          }
-          window.dispatchEvent(new Event("velo-sync-done"));
-        },
-      })),
     },
     {
       id: "pop-out",

@@ -50,20 +50,6 @@ export function useSelectedThreadId(): string | null {
 }
 
 /**
- * Get the active category from search params (only relevant on inbox in split mode).
- */
-export function useActiveCategory(): string {
-  const matches = useMatchesSafe();
-  for (const match of matches) {
-    const search = (match as { search?: Record<string, unknown> }).search;
-    if (search && typeof search["category"] === "string") {
-      return search["category"];
-    }
-  }
-  return "Primary";
-}
-
-/**
  * Get the search query from search params.
  */
 export function useSearchQuery(): string {

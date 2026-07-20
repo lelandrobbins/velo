@@ -91,8 +91,6 @@ export function SettingsPage() {
   const setMarkAsReadBehavior = useUIStore((s) => s.setMarkAsReadBehavior);
   const sendAndArchive = useUIStore((s) => s.sendAndArchive);
   const setSendAndArchive = useUIStore((s) => s.setSendAndArchive);
-  const inboxViewMode = useUIStore((s) => s.inboxViewMode);
-  const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
   const reduceMotion = useUIStore((s) => s.reduceMotion);
   const setReduceMotion = useUIStore((s) => s.setReduceMotion);
   const accounts = useAccountStore((s) => s.accounts);
@@ -123,7 +121,6 @@ export function SettingsPage() {
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-preview-05-20");
   const [copilotModel, setCopilotModel] = useState("openai/gpt-4o-mini");
   const [aiEnabled, setAiEnabled] = useState(true);
-  const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
   const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
   const [aiKeySaved, setAiKeySaved] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
@@ -137,9 +134,7 @@ export function SettingsPage() {
   const [clearingCache, setClearingCache] = useState(false);
   const [reauthStatus, setReauthStatus] = useState<Record<string, "idle" | "authorizing" | "done" | "error">>({});
   const [resyncStatus, setResyncStatus] = useState<Record<string, "idle" | "syncing" | "done" | "error">>({});
-  const [autoArchiveCategories, setAutoArchiveCategories] = useState<Set<string>>(() => new Set());
   const [smartNotifications, setSmartNotifications] = useState(true);
-  const [notifyCategories, setNotifyCategories] = useState<Set<string>>(() => new Set(["Primary"]));
   const [vipSenders, setVipSenders] = useState<{ email_address: string; display_name: string | null }[]>([]);
   const [newVipEmail, setNewVipEmail] = useState("");
 
@@ -196,8 +191,6 @@ export function SettingsPage() {
       if (copilotModelVal) setCopilotModel(copilotModelVal);
       const aiEn = await getSetting("ai_enabled");
       setAiEnabled(aiEn !== "false");
-      const aiCat = await getSetting("ai_auto_categorize");
-      setAiAutoCategorize(aiCat !== "false");
       const aiSum = await getSetting("ai_auto_summarize");
       setAiAutoSummarize(aiSum !== "false");
       const aiDraft = await getSetting("ai_auto_draft_enabled");
@@ -205,19 +198,9 @@ export function SettingsPage() {
       const aiStyle = await getSetting("ai_writing_style_enabled");
       setAiWritingStyleEnabled(aiStyle !== "false");
 
-      // Load auto-archive categories
-      const autoArchive = await getSetting("auto_archive_categories");
-      if (autoArchive) {
-        setAutoArchiveCategories(new Set(autoArchive.split(",").map((s) => s.trim()).filter(Boolean)));
-      }
-
       // Load smart notification settings
       const smartNotif = await getSetting("smart_notifications");
       setSmartNotifications(smartNotif !== "false");
-      const notifCats = await getSetting("notify_categories");
-      if (notifCats) {
-        setNotifyCategories(new Set(notifCats.split(",").map((s) => s.trim()).filter(Boolean)));
-      }
       try {
         const { getAllVipSenders } = await import("@/services/db/notificationVips");
         const activeId = accounts.find((a) => a.isActive)?.id;
@@ -492,18 +475,6 @@ export function SettingsPage() {
                         })}
                       </div>
                     </SettingRow>
-                    <SettingRow label="Inbox view mode">
-                      <select
-                        value={inboxViewMode}
-                        onChange={(e) => {
-                          setInboxViewMode(e.target.value as "unified" | "split");
-                        }}
-                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
-                      >
-                        <option value="unified">Unified</option>
-                        <option value="split">Split (Categories)</option>
-                      </select>
-                    </SettingRow>
                     <ToggleRow
                       label="Reduce motion"
                       description="Disable animated background effects (fixes flickering on some GPUs)"
@@ -622,7 +593,7 @@ export function SettingsPage() {
                     />
                     <ToggleRow
                       label="Smart notifications"
-                      description="Only notify for selected categories and VIP senders"
+                      description="Only notify for VIP senders"
                       checked={smartNotifications}
                       onToggle={async () => {
                         const newVal = !smartNotifications;
@@ -634,36 +605,9 @@ export function SettingsPage() {
 
                   {smartNotifications && (
                     <>
-                      <Section title="Category Filters">
-                        <div>
-                          <span className="text-sm text-text-secondary">Notify for categories</span>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {(["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
-                              <button
-                                key={cat}
-                                onClick={async () => {
-                                  const next = new Set(notifyCategories);
-                                  if (next.has(cat)) next.delete(cat);
-                                  else next.add(cat);
-                                  setNotifyCategories(next);
-                                  await setSetting("notify_categories", [...next].join(","));
-                                }}
-                                className={`px-2.5 py-1 text-xs rounded-full transition-colors border ${
-                                  notifyCategories.has(cat)
-                                    ? "bg-accent/15 text-accent border-accent/30"
-                                    : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
-                                }`}
-                              >
-                                {cat}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </Section>
-
                       <Section title="VIP Senders">
                         <p className="text-xs text-text-tertiary mb-2">
-                          These senders always trigger notifications regardless of category
+                          These senders always trigger notifications
                         </p>
                         <div className="space-y-1.5">
                           {vipSenders.map((vip) => (
@@ -999,7 +943,7 @@ export function SettingsPage() {
                 <>
                   <Section title="Provider">
                     <p className="text-xs text-text-tertiary mb-3">
-                      Choose which AI provider to use for summarization, compose assistance, and smart categorization.
+                      Choose which AI provider to use for summarization and compose assistance.
                     </p>
                     <SettingRow label="AI Provider">
                       <select
@@ -1237,16 +1181,6 @@ export function SettingsPage() {
                       }}
                     />
                     <ToggleRow
-                      label="Auto-categorize inbox"
-                      description="Use AI to refine rule-based categorization"
-                      checked={aiAutoCategorize}
-                      onToggle={async () => {
-                        const newVal = !aiAutoCategorize;
-                        setAiAutoCategorize(newVal);
-                        await setSetting("ai_auto_categorize", newVal ? "true" : "false");
-                      }}
-                    />
-                    <ToggleRow
                       label="Auto-summarize threads"
                       description="Show AI summaries on multi-message threads"
                       checked={aiAutoSummarize}
@@ -1314,30 +1248,6 @@ export function SettingsPage() {
                         </Button>
                       </div>
                     )}
-                  </Section>
-
-                  <Section title="Categories">
-                    <p className="text-xs text-text-tertiary mb-1">
-                      Incoming emails are automatically sorted using rule-based heuristics (Gmail labels, sender domain, headers). When AI is enabled, it refines results for better accuracy.
-                    </p>
-                    <p className="text-xs text-text-tertiary mb-3">
-                      Enable auto-archive to skip the inbox for specific categories.
-                    </p>
-                    {(["Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
-                      <ToggleRow
-                        key={cat}
-                        label={`Auto-archive ${cat}`}
-                        description={`Skip inbox for ${cat.toLowerCase()} emails`}
-                        checked={autoArchiveCategories.has(cat)}
-                        onToggle={async () => {
-                          const next = new Set(autoArchiveCategories);
-                          if (next.has(cat)) next.delete(cat);
-                          else next.add(cat);
-                          setAutoArchiveCategories(next);
-                          await setSetting("auto_archive_categories", [...next].join(","));
-                        }}
-                      />
-                    ))}
                   </Section>
                 </>
               )}

@@ -9,15 +9,8 @@ import { shouldNotifyForMessage, queueNewEmailNotification } from "../notificati
 import { applyFiltersToMessages } from "../filters/filterEngine";
 import { getSetting } from "../db/settings";
 import { getMutedThreadIds } from "../db/threads";
-import { getThreadCategory } from "../db/threadCategories";
 import { getVipSenders } from "../db/notificationVips";
 import { getPendingOpsForResource } from "../db/pendingOperations";
-
-async function loadAutoArchiveCategories(): Promise<Set<string>> {
-  const raw = await getSetting("auto_archive_categories");
-  if (!raw) return new Set();
-  return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
-}
 
 export interface SyncProgress {
   phase: "labels" | "threads" | "messages" | "done";
@@ -29,14 +22,11 @@ export type SyncProgressCallback = (progress: SyncProgress) => void;
 
 /**
  * Store a fetched thread's data (messages, labels, attachments) into the local DB.
- * Optionally pass autoArchiveCategories and client to enable auto-archiving.
  */
 async function processAndStoreThread(
   thread: { id: string },
   accountId: string,
   parsedMessages: ParsedMessage[],
-  client?: GmailClient,
-  autoArchiveCategories?: Set<string>,
 ): Promise<void> {
   const lastMessage = parsedMessages[parsedMessages.length - 1]!;
   const firstMessage = parsedMessages[0]!;
@@ -67,33 +57,6 @@ async function processAndStoreThread(
   });
 
   await setThreadLabels(accountId, thread.id, [...allLabelIds]);
-
-  // Rule-based categorization for inbox threads
-  if (allLabelIds.has("INBOX")) {
-    const { getThreadCategoryWithManual, setThreadCategory } = await import("@/services/db/threadCategories");
-    const existing = await getThreadCategoryWithManual(accountId, thread.id);
-    // Skip if manually categorized
-    if (!existing || !existing.isManual) {
-      const { categorizeByRules } = await import("@/services/categorization/ruleEngine");
-      const category = categorizeByRules({
-        labelIds: [...allLabelIds],
-        fromAddress: lastMessage.fromAddress,
-        listUnsubscribe: lastMessage.listUnsubscribe,
-      });
-      await setThreadCategory(accountId, thread.id, category, false);
-
-      // Auto-archive if category matches
-      if (client && autoArchiveCategories && autoArchiveCategories.has(category) && category !== "Primary") {
-        try {
-          await client.modifyThread(thread.id, undefined, ["INBOX"]);
-          allLabelIds.delete("INBOX");
-          await setThreadLabels(accountId, thread.id, [...allLabelIds]);
-        } catch (err) {
-          console.error(`Failed to auto-archive thread ${thread.id}:`, err);
-        }
-      }
-    }
-  }
 
   await Promise.all(parsedMessages.map(async (parsed) => {
     await upsertMessage({
@@ -202,9 +165,6 @@ export async function initialSync(
   // Phase 3: Fetch and store each thread's details
   let historyId = "0";
 
-  // Load auto-archive categories once for the whole sync
-  const autoArchiveCategories = await loadAutoArchiveCategories();
-
   let progress = 0;
   await parallelLimit(
     threadStubs.map((stub) => async () => {
@@ -224,7 +184,7 @@ export async function initialSync(
         if (!thread.messages || thread.messages.length === 0) return;
 
         const parsedMessages = thread.messages.map(parseGmailMessage);
-        await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
+        await processAndStoreThread(thread, accountId, parsedMessages);
       } catch (err) {
         console.error(`Failed to sync thread ${stub.id}:`, err);
       }
@@ -325,12 +285,8 @@ export async function deltaSync(
     }
 
     // Load settings once for the whole sync cycle
-    const autoArchiveCategories = await loadAutoArchiveCategories();
     const mutedThreadIds = await getMutedThreadIds(accountId);
     const smartNotifications = (await getSetting("smart_notifications")) !== "false";
-    const notifyCategories = new Set(
-      ((await getSetting("notify_categories")) ?? "Primary").split(",").map((s) => s.trim()).filter(Boolean),
-    );
     const vipSenders = smartNotifications ? await getVipSenders(accountId) : new Set<string>();
 
     // Re-fetch affected threads in parallel (max 5 concurrent)
@@ -350,7 +306,7 @@ export async function deltaSync(
           if (!thread.messages || thread.messages.length === 0) return;
 
           const parsedMessages = thread.messages.map(parseGmailMessage);
-          await processAndStoreThread(thread, accountId, parsedMessages, client, autoArchiveCategories);
+          await processAndStoreThread(thread, accountId, parsedMessages);
 
           // Auto-archive muted threads that reappear in INBOX
           if (mutedThreadIds.has(threadId)) {
@@ -372,7 +328,7 @@ export async function deltaSync(
           for (const parsed of parsedMessages) {
             if (newInboxMessageIds.has(parsed.id) && !mutedThreadIds.has(threadId)) {
               const fromAddr = parsed.fromAddress ?? undefined;
-              if (shouldNotifyForMessage(smartNotifications, notifyCategories, vipSenders, await getThreadCategory(accountId, threadId), fromAddr)) {
+              if (shouldNotifyForMessage(smartNotifications, vipSenders, fromAddr)) {
                 const sender = parsed.fromName ?? parsed.fromAddress ?? "Unknown";
                 queueNewEmailNotification(
                   sender,
@@ -407,11 +363,6 @@ export async function deltaSync(
     );
 
     await updateAccountSyncState(accountId, latestHistoryId);
-
-    // Fire-and-forget AI categorization for new threads
-    import("@/services/ai/categorizationManager")
-      .then(({ categorizeNewThreads }) => categorizeNewThreads(accountId))
-      .catch((err) => console.error("Categorization error:", err));
   } catch (err) {
     // historyId might be too old — need full re-sync
     const message = err instanceof Error ? err.message : String(err);

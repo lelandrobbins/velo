@@ -9,7 +9,6 @@ export type EmailDensity = "compact" | "default" | "spacious";
 export type DefaultReplyMode = "reply" | "replyAll";
 export type MarkAsReadBehavior = "instant" | "2s" | "manual";
 export type FontScale = "small" | "default" | "large" | "xlarge";
-export type InboxViewMode = "unified" | "split";
 
 export interface SidebarNavItem {
   id: string;
@@ -29,7 +28,6 @@ interface UIState {
   fontScale: FontScale;
   colorTheme: ColorThemeId;
   sendAndArchive: boolean;
-  inboxViewMode: InboxViewMode;
   sidebarNavConfig: SidebarNavItem[] | null;
   reduceMotion: boolean;
   isOnline: boolean;
@@ -49,7 +47,6 @@ interface UIState {
   setFontScale: (scale: FontScale) => void;
   setColorTheme: (theme: ColorThemeId) => void;
   setSendAndArchive: (enabled: boolean) => void;
-  setInboxViewMode: (mode: InboxViewMode) => void;
   setSidebarNavConfig: (config: SidebarNavItem[]) => void;
   restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
   setReduceMotion: (reduce: boolean) => void;
@@ -71,7 +68,6 @@ export const useUIStore = create<UIState>((set) => ({
   fontScale: "default",
   colorTheme: "indigo",
   sendAndArchive: false,
-  inboxViewMode: "unified",
   sidebarNavConfig: null,
   reduceMotion: false,
   isOnline: true,
@@ -128,10 +124,6 @@ export const useUIStore = create<UIState>((set) => ({
   setSendAndArchive: (sendAndArchive) => {
     setSetting("send_and_archive", String(sendAndArchive)).catch(() => {});
     set({ sendAndArchive });
-  },
-  setInboxViewMode: (inboxViewMode) => {
-    setSetting("inbox_view_mode", inboxViewMode).catch(() => {});
-    set({ inboxViewMode });
   },
   setSidebarNavConfig: (sidebarNavConfig) => {
     setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => {});

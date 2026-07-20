@@ -13,21 +13,14 @@ const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").the
 const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
 
 // ---------- Search param validation ----------
-const VALID_CATEGORIES = ["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const;
-
 type MailSearch = {
   q?: string;
-  category?: (typeof VALID_CATEGORIES)[number];
 };
 
 function validateMailSearch(search: Record<string, unknown>): MailSearch {
   const result: MailSearch = {};
   if (typeof search["q"] === "string" && search["q"]) {
     result.q = search["q"];
-  }
-  const cat = search["category"];
-  if (typeof cat === "string" && (VALID_CATEGORIES as readonly string[]).includes(cat)) {
-    result.category = cat as MailSearch["category"];
   }
   return result;
 }

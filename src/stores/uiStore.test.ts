@@ -17,7 +17,6 @@ describe("uiStore", () => {
       readFilter: "all",
       fontScale: "default",
       colorTheme: "indigo",
-      inboxViewMode: "unified",
     });
   });
 
@@ -182,20 +181,6 @@ describe("uiStore", () => {
     useUIStore.getState().restoreSidebarNavConfig(config);
     expect(useUIStore.getState().sidebarNavConfig).toEqual(config);
     expect(setSetting).not.toHaveBeenCalled();
-  });
-
-  it("inboxViewMode should default to unified", () => {
-    expect(useUIStore.getState().inboxViewMode).toBe("unified");
-  });
-
-  it("setInboxViewMode should persist to DB and update state", () => {
-    useUIStore.getState().setInboxViewMode("split");
-    expect(setSetting).toHaveBeenCalledWith("inbox_view_mode", "split");
-    expect(useUIStore.getState().inboxViewMode).toBe("split");
-
-    useUIStore.getState().setInboxViewMode("unified");
-    expect(setSetting).toHaveBeenCalledWith("inbox_view_mode", "unified");
-    expect(useUIStore.getState().inboxViewMode).toBe("unified");
   });
 
   it("reduceMotion should default to false", () => {

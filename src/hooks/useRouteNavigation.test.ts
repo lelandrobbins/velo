@@ -14,7 +14,6 @@ vi.mock("@tanstack/react-router", () => ({
 import {
   useActiveLabel,
   useSelectedThreadId,
-  useActiveCategory,
   useSearchQuery,
 } from "./useRouteNavigation";
 
@@ -99,32 +98,6 @@ describe("useRouteNavigation hooks", () => {
     it("should return null when no matches", () => {
       setMatches([]);
       expect(useSelectedThreadId()).toBeNull();
-    });
-  });
-
-  describe("useActiveCategory", () => {
-    it("should return category from search params", () => {
-      setMatches([
-        { routeId: "/mail/$label", params: { label: "inbox" }, search: { category: "Updates" } },
-      ]);
-      expect(useActiveCategory()).toBe("Updates");
-    });
-
-    it("should return 'Primary' when no category in search", () => {
-      setMatches([
-        { routeId: "/mail/$label", params: { label: "inbox" }, search: {} },
-      ]);
-      expect(useActiveCategory()).toBe("Primary");
-    });
-
-    it("should return 'Primary' when no search params", () => {
-      setMatches([{ routeId: "/mail/$label", params: { label: "inbox" } }]);
-      expect(useActiveCategory()).toBe("Primary");
-    });
-
-    it("should return 'Primary' when no matches", () => {
-      setMatches([]);
-      expect(useActiveCategory()).toBe("Primary");
     });
   });
 

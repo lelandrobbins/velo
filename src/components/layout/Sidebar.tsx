@@ -9,7 +9,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useLabelStore, type Label } from "@/stores/labelStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useSmartFolderStore } from "@/stores/smartFolderStore";
-import { useActiveLabel, useActiveCategory } from "@/hooks/useRouteNavigation";
+import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { navigateToLabel } from "@/router/navigate";
 import {
   Inbox,
@@ -28,10 +28,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
-  Columns2,
-  Bell,
-  Users,
-  Newspaper,
   Search,
   MailOpen,
   Paperclip,
@@ -57,14 +53,6 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "attachments", label: "Attachments", icon: Paperclip },
   { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
   { id: "labels", label: "Labels", icon: Tag },
-];
-
-const CATEGORY_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "Primary", label: "Primary", icon: Inbox },
-  { id: "Updates", label: "Updates", icon: Bell },
-  { id: "Promotions", label: "Promotions", icon: Tag },
-  { id: "Social", label: "Social", icon: Users },
-  { id: "Newsletters", label: "Newsletters", icon: Newspaper },
 ];
 
 function DroppableNavItem({
@@ -203,9 +191,6 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
   const activeLabel = useActiveLabel();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
-  const inboxViewMode = useUIStore((s) => s.inboxViewMode);
-  const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
-  const activeCategory = useActiveCategory();
   const openComposer = useComposerStore((s) => s.openComposer);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const labels = useLabelStore((s) => s.labels);
@@ -355,20 +340,13 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-2">
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
-          const isInbox = item.id === "inbox";
           return (
             <div key={item.id}>
               <DroppableNavItem
                 id={item.id}
-                isActive={isInbox ? (activeLabel === "inbox" && (inboxViewMode === "unified" || activeCategory === "Primary")) : activeLabel === item.id}
+                isActive={activeLabel === item.id}
                 collapsed={collapsed}
-                onClick={() => {
-                  if (isInbox && inboxViewMode === "split") {
-                    navigateToLabel(item.id, { category: "Primary" });
-                  } else {
-                    navigateToLabel(item.id);
-                  }
-                }}
+                onClick={() => navigateToLabel(item.id)}
                 onContextMenu={(e) => handleNavContextMenu(e, item.id)}
                 title={collapsed ? item.label : undefined}
               >
@@ -382,59 +360,9 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
                     {!collapsed && (
                       <span className="flex-1 truncate">{item.label}</span>
                     )}
-                    {isInbox && !collapsed && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setInboxViewMode(inboxViewMode === "split" ? "unified" : "split");
-                          }
-                        }}
-                        title={inboxViewMode === "split" ? "Switch to unified inbox" : "Switch to split inbox"}
-                        className={`p-1 rounded transition-colors ${
-                          inboxViewMode === "split"
-                            ? "text-accent hover:bg-accent/10"
-                            : "text-sidebar-text/40 hover:text-sidebar-text hover:bg-sidebar-hover"
-                        }`}
-                      >
-                        <Columns2 size={14} />
-                      </span>
-                    )}
                   </>
                 )}
               </DroppableNavItem>
-              {/* Category sub-items when split mode is active */}
-              {isInbox && inboxViewMode === "split" && !collapsed && (
-                <div>
-                  {CATEGORY_ITEMS.map((cat) => {
-                    const CatIcon = cat.icon;
-                    const isCatActive = activeLabel === "inbox" && activeCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          navigateToLabel("inbox", { category: cat.id });
-                        }}
-                        className={`flex items-center gap-2 w-full py-1.5 pl-7 pr-3 text-left text-[0.8125rem] transition-colors ${
-                          isCatActive
-                            ? "text-accent font-medium"
-                            : "text-sidebar-text/70 hover:text-sidebar-text hover:bg-sidebar-hover"
-                        }`}
-                      >
-                        <CatIcon size={14} className="shrink-0" />
-                        <span className="flex-1 truncate">{cat.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           );
         })}

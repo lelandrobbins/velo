@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // The hook reads store state and calls navigate/emailActions — only mock
 // what's needed for the three event-dispatch tests below.
 vi.mock("@/stores/uiStore", () => ({
-  useUIStore: { getState: () => ({ inboxViewMode: "unified", toggleSidebar: vi.fn() }) },
+  useUIStore: { getState: () => ({ toggleSidebar: vi.fn() }) },
 }));
 vi.mock("@/stores/threadStore", () => ({
   useThreadStore: {

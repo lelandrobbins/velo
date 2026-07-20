@@ -237,31 +237,6 @@ async function executeAction(actionId: string): Promise<void> {
     case "nav.goDrafts":
       navigateToLabel("drafts");
       break;
-    case "nav.goPrimary":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Primary" });
-      }
-      break;
-    case "nav.goUpdates":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Updates" });
-      }
-      break;
-    case "nav.goPromotions":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Promotions" });
-      }
-      break;
-    case "nav.goSocial":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Social" });
-      }
-      break;
-    case "nav.goNewsletters":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Newsletters" });
-      }
-      break;
     case "nav.goAttachments":
       navigateToLabel("attachments");
       break;
