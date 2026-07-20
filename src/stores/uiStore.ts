@@ -30,7 +30,6 @@ interface UIState {
   colorTheme: ColorThemeId;
   sendAndArchive: boolean;
   inboxViewMode: InboxViewMode;
-  taskSidebarVisible: boolean;
   sidebarNavConfig: SidebarNavItem[] | null;
   reduceMotion: boolean;
   isOnline: boolean;
@@ -51,8 +50,6 @@ interface UIState {
   setColorTheme: (theme: ColorThemeId) => void;
   setSendAndArchive: (enabled: boolean) => void;
   setInboxViewMode: (mode: InboxViewMode) => void;
-  toggleTaskSidebar: () => void;
-  setTaskSidebarVisible: (visible: boolean) => void;
   setSidebarNavConfig: (config: SidebarNavItem[]) => void;
   restoreSidebarNavConfig: (config: SidebarNavItem[]) => void;
   setReduceMotion: (reduce: boolean) => void;
@@ -75,7 +72,6 @@ export const useUIStore = create<UIState>((set) => ({
   colorTheme: "indigo",
   sendAndArchive: false,
   inboxViewMode: "unified",
-  taskSidebarVisible: false,
   sidebarNavConfig: null,
   reduceMotion: false,
   isOnline: true,
@@ -137,13 +133,6 @@ export const useUIStore = create<UIState>((set) => ({
     setSetting("inbox_view_mode", inboxViewMode).catch(() => {});
     set({ inboxViewMode });
   },
-  toggleTaskSidebar: () =>
-    set((state) => {
-      const visible = !state.taskSidebarVisible;
-      setSetting("task_sidebar_visible", String(visible)).catch(() => {});
-      return { taskSidebarVisible: visible };
-    }),
-  setTaskSidebarVisible: (taskSidebarVisible) => set({ taskSidebarVisible }),
   setSidebarNavConfig: (sidebarNavConfig) => {
     setSetting("sidebar_nav_config", JSON.stringify(sidebarNavConfig)).catch(() => {});
     set({ sidebarNavConfig });

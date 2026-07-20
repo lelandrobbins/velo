@@ -17,8 +17,6 @@ import { ThreadSummary } from "./ThreadSummary";
 import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { InlineReply } from "./InlineReply";
 import { ContactSidebar } from "./ContactSidebar";
-import { TaskSidebar } from "@/components/tasks/TaskSidebar";
-import { AiTaskExtractDialog } from "@/components/tasks/AiTaskExtractDialog";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { MessageSkeleton } from "@/components/ui/Skeleton";
 import { RawMessageModal } from "./RawMessageModal";
@@ -61,8 +59,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const contactSidebarVisible = useUIStore((s) => s.contactSidebarVisible);
   const toggleContactSidebar = useUIStore((s) => s.toggleContactSidebar);
-  const taskSidebarVisible = useUIStore((s) => s.taskSidebarVisible);
-  const [showTaskExtract, setShowTaskExtract] = useState(false);
   const updateThread = useThreadStore((s) => s.updateThread);
   const [messages, setMessages] = useState<DbMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,18 +285,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
     return () => window.removeEventListener("velo-view-raw-message", handler);
   }, []);
 
-  // Listen for extract-task event from keyboard shortcut
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { threadId: string } | undefined;
-      if (detail?.threadId === thread.id) {
-        setShowTaskExtract(true);
-      }
-    };
-    window.addEventListener("velo-extract-task", handler);
-    return () => window.removeEventListener("velo-extract-task", handler);
-  }, [thread.id]);
-
   const handleMessageContextMenu = useCallback((e: React.MouseEvent, msg: DbMessage) => {
     e.preventDefault();
     openMenu("message", { x: e.clientX, y: e.clientY }, {
@@ -387,7 +371,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
           noReply={noReply}
           defaultReplyMode={defaultReplyMode}
           contactSidebarVisible={contactSidebarVisible}
-          taskSidebarVisible={taskSidebarVisible}
           onReply={handleReply}
           onReplyAll={handleReplyAll}
           onForward={handleForward}
@@ -395,7 +378,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
           onExport={handleExport}
           onPopOut={() => handlePopOut(thread)}
           onToggleContactSidebar={toggleContactSidebar}
-          onToggleTaskSidebar={() => useUIStore.getState().toggleTaskSidebar()}
         />
 
         {/* Thread subject */}
@@ -487,11 +469,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
         </>
       )}
 
-      {/* Task sidebar */}
-      {taskSidebarVisible && activeAccountId && (
-        <TaskSidebar accountId={activeAccountId} threadId={thread.id} />
-      )}
-
       {/* Raw message source modal */}
       {rawMessageTarget && (
         <RawMessageModal
@@ -502,15 +479,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
         />
       )}
 
-      {/* AI Task Extraction Dialog */}
-      {showTaskExtract && activeAccountId && (
-        <AiTaskExtractDialog
-          threadId={thread.id}
-          accountId={activeAccountId}
-          messages={messages}
-          onClose={() => setShowTaskExtract(false)}
-        />
-      )}
     </div>
   );
 }

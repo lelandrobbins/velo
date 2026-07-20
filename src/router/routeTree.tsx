@@ -11,7 +11,6 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 // Lazy-load heavy pages — these include many sub-components and service imports
 const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const CalendarPage = lazy(() => import("@/components/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
-const TasksPage = lazy(() => import("@/components/tasks/TasksPage").then((m) => ({ default: m.TasksPage })));
 const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
 
 // ---------- Search param validation ----------
@@ -152,23 +151,6 @@ export const attachmentsRoute = createRoute({
   component: AttachmentLibraryWrapper,
 });
 
-// ---------- /tasks ----------
-function TasksPageWrapper() {
-  return (
-    <ErrorBoundary name="TasksPage">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading tasks...</div>}>
-        <TasksPage />
-      </Suspense>
-    </ErrorBoundary>
-  );
-}
-
-export const tasksRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "tasks",
-  component: TasksPageWrapper,
-});
-
 // ---------- /calendar ----------
 export const calendarRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -185,6 +167,5 @@ export const routeTree = rootRoute.addChildren([
   settingsIndexRoute,
   settingsTabRoute,
   attachmentsRoute,
-  tasksRoute,
   calendarRoute,
 ]);

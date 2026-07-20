@@ -63,8 +63,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { DndProvider } from "./components/dnd/DndProvider";
 import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
-import { getIncompleteTaskCount } from "./services/db/tasks";
-import { useTaskStore } from "./stores/taskStore";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
 import { MoveToFolderDialog } from "./components/email/MoveToFolderDialog";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
@@ -277,12 +275,6 @@ export default function App() {
           ui.setReduceMotion(true);
         }
 
-        // Restore task sidebar visibility
-        const savedTaskSidebar = await getSetting("task_sidebar_visible");
-        if (savedTaskSidebar === "true") {
-          ui.setTaskSidebarVisible(true);
-        }
-
         // Restore sidebar nav config
         const savedNavConfig = await getSetting("sidebar_nav_config");
         if (savedNavConfig) {
@@ -346,13 +338,6 @@ export default function App() {
 
         // Initial badge count
         await updateBadgeCount();
-
-        // Load initial task count
-        const activeAcct = useAccountStore.getState().activeAccountId;
-        if (activeAcct) {
-          const count = await getIncompleteTaskCount(activeAcct);
-          useTaskStore.getState().setIncompleteCount(count);
-        }
 
         // Start auto-update checker
         startUpdateChecker();
