@@ -13,8 +13,6 @@ import { getAllowlistedSenders } from "@/services/db/imageAllowlist";
 import { VolumeX } from "lucide-react";
 import { escapeHtml, sanitizeHtml } from "@/utils/sanitize";
 import { isNoReplyAddress } from "@/utils/noReply";
-import { ThreadSummary } from "./ThreadSummary";
-import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { InlineReply } from "./InlineReply";
 import { ContactSidebar } from "./ContactSidebar";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -395,15 +393,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
           </div>
         </div>
 
-        {/* AI Summary */}
-        {activeAccountId && (
-          <ThreadSummary
-            threadId={thread.id}
-            accountId={activeAccountId}
-            messages={messages}
-          />
-        )}
-
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           <ErrorBoundary name="MessageList">
@@ -421,16 +410,6 @@ export function ThreadView({ thread }: ThreadViewProps) {
               />
             ))}
           </ErrorBoundary>
-
-          {/* Smart Reply Suggestions */}
-          {activeAccountId && messages.length > 0 && (
-            <SmartReplySuggestions
-              threadId={thread.id}
-              accountId={activeAccountId}
-              messages={messages}
-              noReply={noReply}
-            />
-          )}
 
           {/* Inline Reply */}
           {activeAccountId && (

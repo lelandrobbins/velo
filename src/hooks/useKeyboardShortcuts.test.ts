@@ -30,7 +30,6 @@ vi.mock("@/stores/shortcutStore", () => ({
   useShortcutStore: {
     getState: () => ({
       keyMap: {
-        "app.askInbox": "i",
         "app.commandPalette": "/",
         "app.toggleSidebar": "Ctrl+Shift+E",
         "app.help": "?",
@@ -75,21 +74,6 @@ import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 describe("useKeyboardShortcuts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("dispatches velo-toggle-ask-inbox when 'i' is pressed", () => {
-    renderHook(() => useKeyboardShortcuts());
-
-    const listener = vi.fn();
-    window.addEventListener("velo-toggle-ask-inbox", listener);
-
-    window.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "i", bubbles: true }),
-    );
-
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    window.removeEventListener("velo-toggle-ask-inbox", listener);
   });
 
   it("dispatches velo-toggle-command-palette when '/' is pressed", () => {

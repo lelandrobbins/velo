@@ -1,15 +1,12 @@
 import { useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { InputDialog } from "@/components/ui/InputDialog";
-import { Sparkles } from "lucide-react";
 
 interface EditorToolbarProps {
   editor: Editor | null;
-  onToggleAiAssist?: () => void;
-  aiAssistOpen?: boolean;
 }
 
-export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: EditorToolbarProps) {
+export function EditorToolbar({ editor }: EditorToolbarProps) {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
 
@@ -85,20 +82,6 @@ export function EditorToolbar({ editor, onToggleAiAssist, aiAssistOpen }: Editor
       {btn("Image", false, () => imageInputRef.current?.click(), "Insert image")}
 
       <div className="flex-1" />
-
-      {onToggleAiAssist && (
-        <button
-          type="button"
-          onClick={onToggleAiAssist}
-          title="AI Assist"
-          className={`px-1.5 py-1 text-xs rounded hover:bg-bg-hover transition-colors flex items-center gap-1 ${
-            aiAssistOpen ? "bg-accent/10 text-accent font-semibold" : "text-text-secondary"
-          }`}
-        >
-          <Sparkles size={12} />
-          AI
-        </button>
-      )}
 
       {btn("Undo", false, () => editor.chain().focus().undo().run())}
       {btn("Redo", false, () => editor.chain().focus().redo().run())}
