@@ -18,11 +18,6 @@ export function navigateToLabel(
     return;
   }
 
-  if (label === "attachments") {
-    router.navigate({ to: "/attachments" });
-    return;
-  }
-
   if (label.startsWith("smart-folder:")) {
     const folderId = label.replace("smart-folder:", "");
     if (opts?.threadId) {
@@ -185,9 +180,6 @@ export function getActiveLabel(): string {
     }
     if (match.routeId === "/settings/$tab" || match.routeId === "/settings") {
       return "settings";
-    }
-    if (match.routeId === "/attachments") {
-      return "attachments";
     }
   }
   return "inbox";

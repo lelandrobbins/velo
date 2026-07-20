@@ -50,7 +50,6 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "trash", label: "Trash", icon: Trash2 },
   { id: "spam", label: "Spam", icon: Ban },
   { id: "all", label: "All Mail", icon: Mail },
-  { id: "attachments", label: "Attachments", icon: Paperclip },
   { id: "smart-folders", label: "Smart Folders", icon: FolderSearch },
   { id: "labels", label: "Labels", icon: Tag },
 ];

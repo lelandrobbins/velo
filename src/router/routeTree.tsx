@@ -10,7 +10,6 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 // Lazy-load heavy pages — these include many sub-components and service imports
 const SettingsPage = lazy(() => import("@/components/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
-const AttachmentLibrary = lazy(() => import("@/components/attachments/AttachmentLibrary").then((m) => ({ default: m.AttachmentLibrary })));
 
 // ---------- Search param validation ----------
 type MailSearch = {
@@ -116,23 +115,6 @@ export const settingsTabRoute = createRoute({
   component: SettingsTabPage,
 });
 
-// ---------- /attachments ----------
-function AttachmentLibraryWrapper() {
-  return (
-    <ErrorBoundary name="AttachmentLibrary">
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">Loading attachments...</div>}>
-        <AttachmentLibrary />
-      </Suspense>
-    </ErrorBoundary>
-  );
-}
-
-export const attachmentsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "attachments",
-  component: AttachmentLibraryWrapper,
-});
-
 // ---------- Route tree ----------
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -141,5 +123,4 @@ export const routeTree = rootRoute.addChildren([
   smartFolderRoute.addChildren([smartFolderThreadRoute]),
   settingsIndexRoute,
   settingsTabRoute,
-  attachmentsRoute,
 ]);
