@@ -43,9 +43,6 @@ import { FilterEditor } from "./FilterEditor";
 import { LabelEditor } from "./LabelEditor";
 import { ContactEditor } from "./ContactEditor";
 import { SubscriptionManager } from "./SubscriptionManager";
-import { SmartFolderEditor } from "./SmartFolderEditor";
-import { QuickStepEditor } from "./QuickStepEditor";
-import { SmartLabelEditor } from "./SmartLabelEditor";
 import { SHORTCUTS, getDefaultKeyMap } from "@/constants/shortcuts";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import { COLOR_THEMES } from "@/constants/themes";
@@ -92,8 +89,6 @@ export function SettingsPage() {
   const setMarkAsReadBehavior = useUIStore((s) => s.setMarkAsReadBehavior);
   const sendAndArchive = useUIStore((s) => s.sendAndArchive);
   const setSendAndArchive = useUIStore((s) => s.setSendAndArchive);
-  const inboxViewMode = useUIStore((s) => s.inboxViewMode);
-  const setInboxViewMode = useUIStore((s) => s.setInboxViewMode);
   const reduceMotion = useUIStore((s) => s.reduceMotion);
   const setReduceMotion = useUIStore((s) => s.setReduceMotion);
   const accounts = useAccountStore((s) => s.accounts);
@@ -124,23 +119,15 @@ export function SettingsPage() {
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash-preview-05-20");
   const [copilotModel, setCopilotModel] = useState("openai/gpt-4o-mini");
   const [aiEnabled, setAiEnabled] = useState(true);
-  const [aiAutoCategorize, setAiAutoCategorize] = useState(true);
-  const [aiAutoSummarize, setAiAutoSummarize] = useState(true);
   const [aiKeySaved, setAiKeySaved] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState<"success" | "fail" | null>(null);
-  const [aiAutoDraftEnabled, setAiAutoDraftEnabled] = useState(true);
-  const [aiWritingStyleEnabled, setAiWritingStyleEnabled] = useState(true);
-  const [styleAnalyzing, setStyleAnalyzing] = useState(false);
-  const [styleAnalyzeDone, setStyleAnalyzeDone] = useState(false);
   const [cacheMaxMb, setCacheMaxMb] = useState("500");
   const [cacheSizeMb, setCacheSizeMb] = useState<number | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
   const [reauthStatus, setReauthStatus] = useState<Record<string, "idle" | "authorizing" | "done" | "error">>({});
   const [resyncStatus, setResyncStatus] = useState<Record<string, "idle" | "syncing" | "done" | "error">>({});
-  const [autoArchiveCategories, setAutoArchiveCategories] = useState<Set<string>>(() => new Set());
   const [smartNotifications, setSmartNotifications] = useState(true);
-  const [notifyCategories, setNotifyCategories] = useState<Set<string>>(() => new Set(["Primary"]));
   const [vipSenders, setVipSenders] = useState<{ email_address: string; display_name: string | null }[]>([]);
   const [newVipEmail, setNewVipEmail] = useState("");
 
@@ -197,28 +184,10 @@ export function SettingsPage() {
       if (copilotModelVal) setCopilotModel(copilotModelVal);
       const aiEn = await getSetting("ai_enabled");
       setAiEnabled(aiEn !== "false");
-      const aiCat = await getSetting("ai_auto_categorize");
-      setAiAutoCategorize(aiCat !== "false");
-      const aiSum = await getSetting("ai_auto_summarize");
-      setAiAutoSummarize(aiSum !== "false");
-      const aiDraft = await getSetting("ai_auto_draft_enabled");
-      setAiAutoDraftEnabled(aiDraft !== "false");
-      const aiStyle = await getSetting("ai_writing_style_enabled");
-      setAiWritingStyleEnabled(aiStyle !== "false");
-
-      // Load auto-archive categories
-      const autoArchive = await getSetting("auto_archive_categories");
-      if (autoArchive) {
-        setAutoArchiveCategories(new Set(autoArchive.split(",").map((s) => s.trim()).filter(Boolean)));
-      }
 
       // Load smart notification settings
       const smartNotif = await getSetting("smart_notifications");
       setSmartNotifications(smartNotif !== "false");
-      const notifCats = await getSetting("notify_categories");
-      if (notifCats) {
-        setNotifyCategories(new Set(notifCats.split(",").map((s) => s.trim()).filter(Boolean)));
-      }
       try {
         const { getAllVipSenders } = await import("@/services/db/notificationVips");
         const activeId = accounts.find((a) => a.isActive)?.id;
@@ -493,18 +462,6 @@ export function SettingsPage() {
                         })}
                       </div>
                     </SettingRow>
-                    <SettingRow label="Inbox view mode">
-                      <select
-                        value={inboxViewMode}
-                        onChange={(e) => {
-                          setInboxViewMode(e.target.value as "unified" | "split");
-                        }}
-                        className="w-48 bg-bg-tertiary text-text-primary text-sm px-3 py-1.5 rounded-md border border-border-primary focus:border-accent outline-none"
-                      >
-                        <option value="unified">Unified</option>
-                        <option value="split">Split (Categories)</option>
-                      </select>
-                    </SettingRow>
                     <ToggleRow
                       label="Reduce motion"
                       description="Disable animated background effects (fixes flickering on some GPUs)"
@@ -623,7 +580,7 @@ export function SettingsPage() {
                     />
                     <ToggleRow
                       label="Smart notifications"
-                      description="Only notify for selected categories and VIP senders"
+                      description="When VIPs are configured, only they trigger notifications"
                       checked={smartNotifications}
                       onToggle={async () => {
                         const newVal = !smartNotifications;
@@ -635,36 +592,9 @@ export function SettingsPage() {
 
                   {smartNotifications && (
                     <>
-                      <Section title="Category Filters">
-                        <div>
-                          <span className="text-sm text-text-secondary">Notify for categories</span>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {(["Primary", "Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
-                              <button
-                                key={cat}
-                                onClick={async () => {
-                                  const next = new Set(notifyCategories);
-                                  if (next.has(cat)) next.delete(cat);
-                                  else next.add(cat);
-                                  setNotifyCategories(next);
-                                  await setSetting("notify_categories", [...next].join(","));
-                                }}
-                                className={`px-2.5 py-1 text-xs rounded-full transition-colors border ${
-                                  notifyCategories.has(cat)
-                                    ? "bg-accent/15 text-accent border-accent/30"
-                                    : "bg-bg-tertiary text-text-tertiary border-border-primary hover:text-text-primary"
-                                }`}
-                              >
-                                {cat}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </Section>
-
                       <Section title="VIP Senders">
                         <p className="text-xs text-text-tertiary mb-2">
-                          These senders always trigger notifications regardless of category
+                          These senders always trigger notifications
                         </p>
                         <div className="space-y-1.5">
                           {vipSenders.map((vip) => (
@@ -801,28 +731,6 @@ export function SettingsPage() {
                     </p>
                     <FilterEditor />
                   </Section>
-
-                  <Section title="Smart Labels">
-                    <p className="text-xs text-text-tertiary mb-3">
-                      Describe what emails should get a label using plain English. AI automatically labels matching emails during sync.
-                    </p>
-                    <SmartLabelEditor />
-                  </Section>
-
-                  <Section title="Smart Folders">
-                    <p className="text-xs text-text-tertiary mb-3">
-                      Smart folders are saved searches that automatically show matching emails. Use search operators like <code className="bg-bg-tertiary px-1 rounded">is:unread</code>, <code className="bg-bg-tertiary px-1 rounded">from:</code>, <code className="bg-bg-tertiary px-1 rounded">has:attachment</code>, <code className="bg-bg-tertiary px-1 rounded">after:</code>.
-                    </p>
-                    <SmartFolderEditor />
-                  </Section>
-
-                  <Section title="Quick Steps">
-                    <p className="text-xs text-text-tertiary mb-3">
-                      Quick steps let you chain multiple actions together into a single click.
-                      Apply them from the right-click menu on any thread.
-                    </p>
-                    <QuickStepEditor />
-                  </Section>
                 </>
               )}
 
@@ -847,13 +755,13 @@ export function SettingsPage() {
               {activeTab === "accounts" && (
                 <>
                   <Section title="Mail Accounts">
-                    {accounts.filter((a) => a.provider !== "caldav").length === 0 ? (
+                    {accounts.length === 0 ? (
                       <p className="text-sm text-text-tertiary">
                         No mail accounts connected
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {accounts.filter((a) => a.provider !== "caldav").map((account) => {
+                        {accounts.map((account) => {
                           const providerLabel = account.provider === "imap" ? "IMAP" : "Gmail";
                           return (
                             <div
@@ -906,40 +814,7 @@ export function SettingsPage() {
                     )}
                   </Section>
 
-                  {accounts.some((a) => a.provider === "caldav") && (
-                    <Section title="Calendar Accounts">
-                      <div className="space-y-2">
-                        {accounts.filter((a) => a.provider === "caldav").map((account) => (
-                          <div
-                            key={account.id}
-                            className="flex items-center justify-between py-2.5 px-4 bg-bg-secondary rounded-lg"
-                          >
-                            <div>
-                              <div className="text-sm font-medium text-text-primary flex items-center gap-2">
-                                {account.displayName ?? account.email}
-                                <span className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full bg-accent/10 text-accent">
-                                  CalDAV
-                                </span>
-                              </div>
-                              <div className="text-xs text-text-tertiary">
-                                {account.email}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleRemoveAccount(account.id)}
-                              className="text-xs text-danger hover:text-danger/80 transition-colors"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-                  )}
-
                   <SendAsAliasesSection />
-
-                  <ImapCalDavSection />
 
                   <Section title="Google API">
                     <div className="space-y-3">
@@ -1041,7 +916,7 @@ export function SettingsPage() {
                 <>
                   <Section title="Provider">
                     <p className="text-xs text-text-tertiary mb-3">
-                      Choose which AI provider to use for summarization, compose assistance, and smart categorization.
+                      Choose which AI provider to use for summarization and compose assistance.
                     </p>
                     <SettingRow label="AI Provider">
                       <select
@@ -1112,8 +987,9 @@ export function SettingsPage() {
                               setAiTesting(true);
                               setAiTestResult(null);
                               try {
-                                const { testConnection } = await import("@/services/ai/aiService");
-                                const ok = await testConnection();
+                                const { getActiveProvider } = await import("@/services/ai/providerManager");
+                                const provider = await getActiveProvider();
+                                const ok = await provider.testConnection();
                                 setAiTestResult(ok ? "success" : "fail");
                               } catch {
                                 setAiTestResult("fail");
@@ -1237,8 +1113,9 @@ export function SettingsPage() {
                               setAiTesting(true);
                               setAiTestResult(null);
                               try {
-                                const { testConnection } = await import("@/services/ai/aiService");
-                                const ok = await testConnection();
+                                const { getActiveProvider } = await import("@/services/ai/providerManager");
+                                const provider = await getActiveProvider();
+                                const ok = await provider.testConnection();
                                 setAiTestResult(ok ? "success" : "fail");
                               } catch {
                                 setAiTestResult("fail");
@@ -1278,115 +1155,6 @@ export function SettingsPage() {
                         await setSetting("ai_enabled", newVal ? "true" : "false");
                       }}
                     />
-                    <ToggleRow
-                      label="Auto-categorize inbox"
-                      description="Use AI to refine rule-based categorization"
-                      checked={aiAutoCategorize}
-                      onToggle={async () => {
-                        const newVal = !aiAutoCategorize;
-                        setAiAutoCategorize(newVal);
-                        await setSetting("ai_auto_categorize", newVal ? "true" : "false");
-                      }}
-                    />
-                    <ToggleRow
-                      label="Auto-summarize threads"
-                      description="Show AI summaries on multi-message threads"
-                      checked={aiAutoSummarize}
-                      onToggle={async () => {
-                        const newVal = !aiAutoSummarize;
-                        setAiAutoSummarize(newVal);
-                        await setSetting("ai_auto_summarize", newVal ? "true" : "false");
-                      }}
-                    />
-                  </Section>
-
-                  <Section title="Auto-Draft Replies">
-                    <ToggleRow
-                      label="Auto-draft replies"
-                      description="Pre-populate the reply editor with an AI-generated draft"
-                      checked={aiAutoDraftEnabled}
-                      onToggle={async () => {
-                        const newVal = !aiAutoDraftEnabled;
-                        setAiAutoDraftEnabled(newVal);
-                        await setSetting("ai_auto_draft_enabled", newVal ? "true" : "false");
-                      }}
-                    />
-                    <ToggleRow
-                      label="Learn writing style"
-                      description="Analyze your sent emails to match your tone and voice"
-                      checked={aiWritingStyleEnabled}
-                      onToggle={async () => {
-                        const newVal = !aiWritingStyleEnabled;
-                        setAiWritingStyleEnabled(newVal);
-                        await setSetting("ai_writing_style_enabled", newVal ? "true" : "false");
-                      }}
-                    />
-                    {aiWritingStyleEnabled && (
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-sm text-text-secondary">Writing style profile</span>
-                          <p className="text-xs text-text-tertiary mt-0.5">
-                            Reanalyze your writing style from recent sent emails
-                          </p>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="md"
-                          onClick={async () => {
-                            setStyleAnalyzing(true);
-                            setStyleAnalyzeDone(false);
-                            try {
-                              const activeId = accounts.find((a) => a.isActive)?.id;
-                              if (activeId) {
-                                const { refreshWritingStyle } = await import("@/services/ai/writingStyleService");
-                                await refreshWritingStyle(activeId);
-                                setStyleAnalyzeDone(true);
-                                setTimeout(() => setStyleAnalyzeDone(false), 3000);
-                              }
-                            } catch (err) {
-                              console.error("Style analysis failed:", err);
-                            } finally {
-                              setStyleAnalyzing(false);
-                            }
-                          }}
-                          disabled={styleAnalyzing}
-                          className="bg-bg-tertiary text-text-primary border border-border-primary"
-                        >
-                          {styleAnalyzing ? "Analyzing..." : styleAnalyzeDone ? "Done!" : "Reanalyze"}
-                        </Button>
-                      </div>
-                    )}
-                  </Section>
-
-                  <Section title="Categories">
-                    <p className="text-xs text-text-tertiary mb-1">
-                      Incoming emails are automatically sorted using rule-based heuristics (Gmail labels, sender domain, headers). When AI is enabled, it refines results for better accuracy.
-                    </p>
-                    <p className="text-xs text-text-tertiary mb-3">
-                      Enable auto-archive to skip the inbox for specific categories.
-                    </p>
-                    {(["Updates", "Promotions", "Social", "Newsletters"] as const).map((cat) => (
-                      <ToggleRow
-                        key={cat}
-                        label={`Auto-archive ${cat}`}
-                        description={`Skip inbox for ${cat.toLowerCase()} emails`}
-                        checked={autoArchiveCategories.has(cat)}
-                        onToggle={async () => {
-                          const next = new Set(autoArchiveCategories);
-                          if (next.has(cat)) next.delete(cat);
-                          else next.add(cat);
-                          setAutoArchiveCategories(next);
-                          await setSetting("auto_archive_categories", [...next].join(","));
-                        }}
-                      />
-                    ))}
-                  </Section>
-
-                  <Section title="Bundling & Delivery Schedules">
-                    <p className="text-xs text-text-tertiary mb-3">
-                      Collapse categories into a single row in the inbox. Optionally set a delivery schedule to batch emails.
-                    </p>
-                    <BundleSettings />
                   </Section>
                 </>
               )}
@@ -1987,47 +1755,6 @@ function ShortcutsTab() {
   );
 }
 
-function ImapCalDavSection() {
-  const accounts = useAccountStore((s) => s.accounts);
-  const activeAccountId = useAccountStore((s) => s.activeAccountId);
-  const [account, setAccount] = useState<import("@/services/db/accounts").DbAccount | null>(null);
-
-  useEffect(() => {
-    if (!activeAccountId) return;
-    import("@/services/db/accounts").then(({ getAccount }) => {
-      getAccount(activeAccountId).then(setAccount);
-    });
-  }, [activeAccountId]);
-
-  const activeUiAccount = accounts.find((a) => a.id === activeAccountId);
-  const isImap = activeUiAccount?.provider === "imap";
-
-  if (!isImap || !account) return null;
-
-  return (
-    <Section title="Calendar (CalDAV)">
-      <CalDavSettingsInline account={account} onSaved={() => {
-        // Reload account
-        import("@/services/db/accounts").then(({ getAccount }) => {
-          getAccount(account.id).then(setAccount);
-        });
-      }} />
-    </Section>
-  );
-}
-
-function CalDavSettingsInline({ account, onSaved }: { account: import("@/services/db/accounts").DbAccount; onSaved: () => void }) {
-  const [CalDav, setCalDav] = useState<typeof import("@/components/settings/CalDavSettings").CalDavSettings | null>(null);
-
-  useEffect(() => {
-    import("@/components/settings/CalDavSettings").then((m) => setCalDav(() => m.CalDavSettings));
-  }, []);
-
-  if (!CalDav) return <div className="text-xs text-text-tertiary">Loading...</div>;
-
-  return <CalDav account={account} onSaved={onSaved} />;
-}
-
 function SidebarNavEditor() {
   const sidebarNavConfig = useUIStore((s) => s.sidebarNavConfig);
   const setSidebarNavConfig = useUIStore((s) => s.setSidebarNavConfig);
@@ -2167,122 +1894,6 @@ function SettingRow({
     <div className="flex items-center justify-between">
       <label className="text-sm text-text-secondary">{label}</label>
       {children}
-    </div>
-  );
-}
-
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function BundleSettings() {
-  const accounts = useAccountStore((s) => s.accounts);
-  const activeAccountId = accounts.find((a) => a.isActive)?.id;
-  const [rules, setRules] = useState<Record<string, { bundled: boolean; delivery: boolean; days: number[]; hour: number; minute: number }>>({});
-
-  useEffect(() => {
-    if (!activeAccountId) return;
-    import("@/services/db/bundleRules").then(async ({ getBundleRules }) => {
-      const dbRules = await getBundleRules(activeAccountId);
-      const map: typeof rules = {};
-      for (const r of dbRules) {
-        let schedule = { days: [6], hour: 9, minute: 0 };
-        try {
-          if (r.delivery_schedule) schedule = JSON.parse(r.delivery_schedule);
-        } catch { /* use defaults */ }
-        map[r.category] = {
-          bundled: r.is_bundled === 1,
-          delivery: r.delivery_enabled === 1,
-          days: schedule.days,
-          hour: schedule.hour,
-          minute: schedule.minute,
-        };
-      }
-      setRules(map);
-    });
-  }, [activeAccountId]);
-
-  const saveRule = async (category: string, update: Partial<typeof rules[string]>) => {
-    if (!activeAccountId) return;
-    const current = rules[category] ?? { bundled: false, delivery: false, days: [6], hour: 9, minute: 0 };
-    const merged = { ...current, ...update };
-    setRules((prev) => ({ ...prev, [category]: merged }));
-    const { setBundleRule } = await import("@/services/db/bundleRules");
-    await setBundleRule(
-      activeAccountId,
-      category,
-      merged.bundled,
-      merged.delivery,
-      merged.delivery ? { days: merged.days, hour: merged.hour, minute: merged.minute } : null,
-    );
-  };
-
-  return (
-    <div className="space-y-4">
-      {(["Newsletters", "Promotions", "Social", "Updates"] as const).map((cat) => {
-        const rule = rules[cat];
-        return (
-          <div key={cat} className="py-3 px-4 bg-bg-secondary rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-primary">{cat}</span>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-xs text-text-secondary">
-                  <input
-                    type="checkbox"
-                    checked={rule?.bundled ?? false}
-                    onChange={() => saveRule(cat, { bundled: !(rule?.bundled ?? false) })}
-                    className="accent-accent"
-                  />
-                  Bundle
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-text-secondary">
-                  <input
-                    type="checkbox"
-                    checked={rule?.delivery ?? false}
-                    onChange={() => saveRule(cat, { delivery: !(rule?.delivery ?? false) })}
-                    className="accent-accent"
-                  />
-                  Schedule
-                </label>
-              </div>
-            </div>
-            {rule?.delivery && (
-              <div className="space-y-2 pt-1">
-                <div className="flex gap-1">
-                  {DAY_NAMES.map((name, idx) => (
-                    <button
-                      key={name}
-                      onClick={() => {
-                        const days = rule.days.includes(idx)
-                          ? rule.days.filter((d) => d !== idx)
-                          : [...rule.days, idx].sort();
-                        saveRule(cat, { days });
-                      }}
-                      className={`w-8 h-7 text-[0.625rem] rounded transition-colors ${
-                        rule.days.includes(idx)
-                          ? "bg-accent text-white"
-                          : "bg-bg-tertiary text-text-tertiary border border-border-primary"
-                      }`}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-tertiary">at</span>
-                  <input
-                    type="time"
-                    value={`${String(rule.hour).padStart(2, "0")}:${String(rule.minute).padStart(2, "0")}`}
-                    onChange={(e) => {
-                      const [h, m] = e.target.value.split(":").map(Number);
-                      saveRule(cat, { hour: h ?? 9, minute: m ?? 0 });
-                    }}
-                    className="bg-bg-tertiary text-text-primary text-xs px-2 py-1 rounded border border-border-primary"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }

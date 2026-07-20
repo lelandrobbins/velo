@@ -237,37 +237,6 @@ async function executeAction(actionId: string): Promise<void> {
     case "nav.goDrafts":
       navigateToLabel("drafts");
       break;
-    case "nav.goPrimary":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Primary" });
-      }
-      break;
-    case "nav.goUpdates":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Updates" });
-      }
-      break;
-    case "nav.goPromotions":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Promotions" });
-      }
-      break;
-    case "nav.goSocial":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Social" });
-      }
-      break;
-    case "nav.goNewsletters":
-      if (useUIStore.getState().inboxViewMode === "split") {
-        navigateToLabel("inbox", { category: "Newsletters" });
-      }
-      break;
-    case "nav.goTasks":
-      navigateToLabel("tasks");
-      break;
-    case "nav.goAttachments":
-      navigateToLabel("attachments");
-      break;
     case "nav.escape": {
       if (useComposerStore.getState().isOpen) {
         useComposerStore.getState().closeComposer();
@@ -447,12 +416,6 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
-    case "action.createTaskFromEmail": {
-      if (selectedId) {
-        window.dispatchEvent(new CustomEvent("velo-extract-task", { detail: { threadId: selectedId } }));
-      }
-      break;
-    }
     case "action.moveToFolder": {
       const multiMoveIds = useThreadStore.getState().selectedThreadIds;
       const moveThreadIds = multiMoveIds.size > 0 ? [...multiMoveIds] : selectedId ? [selectedId] : [];
@@ -466,9 +429,6 @@ async function executeAction(actionId: string): Promise<void> {
       break;
     case "app.toggleSidebar":
       useUIStore.getState().toggleSidebar();
-      break;
-    case "app.askInbox":
-      window.dispatchEvent(new Event("velo-toggle-ask-inbox"));
       break;
     case "app.help":
       window.dispatchEvent(new Event("velo-toggle-shortcuts-help"));

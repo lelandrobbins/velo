@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useThreadStore } from "@/stores/threadStore";
@@ -12,9 +12,6 @@ import { deleteDraftsForThread } from "@/services/gmail/draftDeletion";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { getMessagesForThread } from "@/services/db/messages";
 import { snoozeThread } from "@/services/snooze/snoozeManager";
-import { getEnabledQuickStepsForAccount, type DbQuickStep } from "@/services/db/quickSteps";
-import { executeQuickStep } from "@/services/quickSteps/executor";
-import type { QuickStep, QuickStepAction } from "@/services/quickSteps/types";
 import { SnoozeDialog } from "../email/SnoozeDialog";
 import {
   Reply,
@@ -33,15 +30,12 @@ import {
   ExternalLink,
   Pencil,
   Copy,
-  Layers,
   VolumeX,
-  Zap,
   Code,
   RefreshCw,
 } from "lucide-react";
 import { triggerSync } from "@/services/gmail/syncManager";
 import { useUIStore } from "@/stores/uiStore";
-import { setThreadCategory, ALL_CATEGORIES } from "@/services/db/threadCategories";
 
 function buildQuote(msg: { from_name: string | null; from_address: string | null; date: string | number; body_html: string | null; body_text: string | null }): string {
   const date = new Date(msg.date).toLocaleString();
@@ -210,14 +204,6 @@ function ThreadMenu({
   const activeLabel = getActiveLabel();
   const labels = useLabelStore((s) => s.labels);
   const openComposer = useComposerStore((s) => s.openComposer);
-  const [quickSteps, setQuickSteps] = useState<DbQuickStep[]>([]);
-
-  useEffect(() => {
-    if (!activeAccountId) return;
-    getEnabledQuickStepsForAccount(activeAccountId).then(setQuickSteps).catch(() => {
-      // quick_steps table may not exist yet before migration
-    });
-  }, [activeAccountId]);
 
   // Determine target threads: if right-clicked thread is in multi-select, use all selected; otherwise just this one
   const isInMultiSelect = selectedThreadIds.has(threadId);
@@ -533,57 +519,6 @@ function ThreadMenu({
         window.dispatchEvent(new CustomEvent("velo-move-to-folder", { detail: { threadIds: [...targetIds] } }));
       },
     },
-    {
-      id: "move-to-category",
-      label: "Move to Category",
-      icon: Layers,
-      children: ALL_CATEGORIES.map((cat) => ({
-        id: `cat-${cat}`,
-        label: cat,
-        action: async () => {
-          for (const id of targetIds) {
-            await setThreadCategory(activeAccountId, id, cat, true);
-          }
-          window.dispatchEvent(new Event("velo-sync-done"));
-        },
-      })),
-    },
-    ...(quickSteps.length > 0
-      ? [
-          { id: "sep-4", label: "", separator: true },
-          {
-            id: "quick-steps",
-            label: "Quick Steps",
-            icon: Zap,
-            children: quickSteps.map((qs) => {
-              let parsedActions: QuickStepAction[] = [];
-              try {
-                parsedActions = JSON.parse(qs.actions_json) as QuickStepAction[];
-              } catch { /* ignore */ }
-              return {
-                id: `qs-${qs.id}`,
-                label: qs.name,
-                action: async () => {
-                  const step: QuickStep = {
-                    id: qs.id,
-                    accountId: qs.account_id,
-                    name: qs.name,
-                    description: qs.description,
-                    shortcut: qs.shortcut,
-                    actions: parsedActions,
-                    icon: qs.icon,
-                    isEnabled: qs.is_enabled === 1,
-                    continueOnError: qs.continue_on_error === 1,
-                    sortOrder: qs.sort_order,
-                    createdAt: qs.created_at,
-                  };
-                  await executeQuickStep(step, [...targetIds], activeAccountId);
-                },
-              };
-            }),
-          } as ContextMenuItem,
-        ]
-      : []),
     {
       id: "pop-out",
       label: "Open in New Window",

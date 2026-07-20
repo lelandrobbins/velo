@@ -20,27 +20,11 @@ vi.mock("../db/accounts", () => ({
 vi.mock("../db/settings", () => ({
   getSetting: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("../db/threadCategories", () => ({
-  getThreadCategoryWithManual: vi.fn().mockResolvedValue(null),
-  setThreadCategory: vi.fn(),
-  getThreadCategory: vi.fn().mockResolvedValue(null),
-}));
 vi.mock("../db/notificationVips", () => ({
   getVipSenders: vi.fn().mockResolvedValue(new Set()),
 }));
-vi.mock("@/services/categorization/ruleEngine", () => ({
-  categorizeByRules: vi.fn().mockReturnValue("Primary"),
-}));
 vi.mock("../filters/filterEngine", () => ({
   applyFiltersToMessages: vi.fn(),
-}));
-vi.mock("@/services/ai/categorizationManager", () => ({
-  categorizeNewThreads: vi.fn(),
-}));
-vi.mock("@/services/db/bundleRules", () => ({
-  getBundleRule: vi.fn().mockResolvedValue(null),
-  holdThread: vi.fn(),
-  getNextDeliveryTime: vi.fn(),
 }));
 vi.mock("@/services/db/pendingOperations", () => ({
   getPendingOpsForResource: vi.fn().mockResolvedValue([]),

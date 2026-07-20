@@ -152,15 +152,12 @@ export function queueNewEmailNotification(
  */
 export function shouldNotifyForMessage(
   smartEnabled: boolean,
-  allowedCategories: Set<string>,
   vipSenders: Set<string>,
-  threadCategory: string | null,
   fromAddress?: string,
 ): boolean {
   if (!smartEnabled) return true; // Smart notifications off → notify everything
-  if (fromAddress && vipSenders.has(normalizeEmail(fromAddress))) return true; // VIP always notifies
-  const category = threadCategory ?? "Primary"; // uncategorized defaults to Primary
-  return allowedCategories.has(category);
+  if (vipSenders.size === 0) return true; // No VIPs configured → nothing to filter by, notify everything
+  return !!fromAddress && vipSenders.has(normalizeEmail(fromAddress)); // VIPs configured → only they notify
 }
 
 /**

@@ -14,7 +14,6 @@ vi.mock("@tanstack/react-router", () => ({
 import {
   useActiveLabel,
   useSelectedThreadId,
-  useActiveCategory,
   useSearchQuery,
 } from "./useRouteNavigation";
 
@@ -55,11 +54,6 @@ describe("useRouteNavigation hooks", () => {
       expect(useActiveLabel()).toBe("Label_42");
     });
 
-    it("should return smart-folder: prefix from smart folder route", () => {
-      setMatches([{ routeId: "/smart-folder/$folderId", params: { folderId: "sf-1" } }]);
-      expect(useActiveLabel()).toBe("smart-folder:sf-1");
-    });
-
     it("should return 'settings' from settings route", () => {
       setMatches([{ routeId: "/settings/$tab", params: { tab: "general" } }]);
       expect(useActiveLabel()).toBe("settings");
@@ -68,11 +62,6 @@ describe("useRouteNavigation hooks", () => {
     it("should return 'settings' from settings index route", () => {
       setMatches([{ routeId: "/settings", params: {} }]);
       expect(useActiveLabel()).toBe("settings");
-    });
-
-    it("should return 'calendar' from calendar route", () => {
-      setMatches([{ routeId: "/calendar", params: {} }]);
-      expect(useActiveLabel()).toBe("calendar");
     });
 
     it("should return 'inbox' as fallback when no matches", () => {
@@ -104,32 +93,6 @@ describe("useRouteNavigation hooks", () => {
     it("should return null when no matches", () => {
       setMatches([]);
       expect(useSelectedThreadId()).toBeNull();
-    });
-  });
-
-  describe("useActiveCategory", () => {
-    it("should return category from search params", () => {
-      setMatches([
-        { routeId: "/mail/$label", params: { label: "inbox" }, search: { category: "Updates" } },
-      ]);
-      expect(useActiveCategory()).toBe("Updates");
-    });
-
-    it("should return 'Primary' when no category in search", () => {
-      setMatches([
-        { routeId: "/mail/$label", params: { label: "inbox" }, search: {} },
-      ]);
-      expect(useActiveCategory()).toBe("Primary");
-    });
-
-    it("should return 'Primary' when no search params", () => {
-      setMatches([{ routeId: "/mail/$label", params: { label: "inbox" } }]);
-      expect(useActiveCategory()).toBe("Primary");
-    });
-
-    it("should return 'Primary' when no matches", () => {
-      setMatches([]);
-      expect(useActiveCategory()).toBe("Primary");
     });
   });
 

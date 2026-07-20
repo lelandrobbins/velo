@@ -10,7 +10,7 @@
 
 <p align="center">
   A blazing-fast, keyboard-first desktop email client built with Tauri, React, and Rust.<br />
-  Local-first. Privacy-focused. AI-powered.
+  Local-first. Privacy-focused.
 </p>
 
 <p align="center">
@@ -36,7 +36,6 @@ Most email clients are slow, bloated, or send your data to someone else's server
 
 - **Local-first** -- Your emails live in a local SQLite database. No middleman servers. Read your mail offline.
 - **Keyboard-driven** -- Superhuman-inspired shortcuts let you fly through your inbox without touching the mouse.
-- **AI-enhanced** -- Summarize threads, generate replies, and search your inbox in natural language -- with your choice of AI provider.
 - **Native performance** -- Rust backend via Tauri v2. Small binary, low memory, instant startup.
 - **Private by default** -- Remote images blocked, HTML sanitized, emails rendered in sandboxed iframes. Your data stays on your machine.
 
@@ -51,7 +50,6 @@ Most email clients are slow, bloated, or send your data to someone else's server
 - Full-text search with Gmail-style operators (`from:`, `to:`, `subject:`, `has:attachment`, `label:`, etc.)
 - Command palette (`/` or `Ctrl+K`) for quick actions
 - Drag-and-drop labels, multi-select, pin threads, mute threads, context menus
-- Split inbox with category tabs (Primary, Updates, Promotions, Social, Newsletters)
 - Inline reply, contact sidebar with Gravatar
 
 ### Composer
@@ -67,28 +65,8 @@ Most email clients are slow, bloated, or send your data to someone else's server
 
 - Snooze threads with presets or custom date/time
 - Filters to auto-label, archive, trash, star, or mark read
-- AI + rule-based auto-categorization (Primary, Updates, Promotions, Social, Newsletters)
 - One-click unsubscribe (RFC 8058) and subscription manager
-- Newsletter bundling with delivery schedules
-- Smart folders / saved searches with dynamic query tokens
-- Quick steps -- custom action chains for batch thread processing
 - Follow-up reminders when you haven't received a reply
-
-### AI
-
-Three providers with selectable models -- choose one or mix and match:
-
-| Provider | Models |
-|----------|--------|
-| **Anthropic Claude** | Haiku 4.5, Sonnet 4, Opus 4 |
-| **OpenAI** | GPT-4o Mini, GPT-4o, GPT-4.1 Nano, GPT-4.1 Mini, GPT-4.1 |
-| **Google Gemini** | 2.5 Flash, 2.5 Pro |
-
-Thread summaries, smart reply suggestions, AI compose & reply, text transform (improve/shorten/formalize), Ask My Inbox (natural language search). Pick which model to use per provider in Settings. All results cached locally.
-
-### Calendar
-
-Google Calendar sync with month, week, and day views. Create events without leaving Velo.
 
 ### UI & Design
 
@@ -127,11 +105,9 @@ No build tools or programming knowledge required -- just download, install, and 
 
 ### Account setup
 
-**Gmail:** Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/) (enable Gmail API + Calendar API), then enter your Client ID in Velo's Settings. No client secret needed (PKCE).
+**Gmail:** Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/) (enable the Gmail API), then enter your Client ID in Velo's Settings. No client secret needed (PKCE).
 
 **IMAP/SMTP:** Click "Add IMAP Account" in the account switcher. Enter your email and password -- Velo auto-discovers server settings for popular providers (Outlook, Yahoo, iCloud, Fastmail, etc.). For other providers, enter IMAP/SMTP server details manually. No Google Cloud project needed.
-
-**AI (optional):** Add an API key for [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), or [Google Gemini](https://aistudio.google.com/) in Settings. Then select which model to use for each provider.
 
 ### Building from source
 
@@ -156,11 +132,10 @@ See [Development Guide](docs/development.md) for all commands, testing, and buil
 |--|--|
 | **Framework** | Tauri v2 (Rust) + React 19 + TypeScript |
 | **Styling** | Tailwind CSS v4 |
-| **State** | Zustand 5 (8 stores) |
+| **State** | Zustand 5 (7 stores) |
 | **Editor** | TipTap v3 |
 | **Email** | Gmail API, IMAP/SMTP (via async-imap + lettre in Rust) |
-| **Database** | SQLite + FTS5 (33 tables) |
-| **AI** | Claude, GPT, Gemini |
+| **Database** | SQLite + FTS5 (35 tables) |
 | **Testing** | Vitest + Testing Library |
 
 See [Architecture](docs/architecture.md) for detailed design, data flow, and project structure.

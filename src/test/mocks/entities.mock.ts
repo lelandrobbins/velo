@@ -9,7 +9,6 @@ import type {
   ImapFetchResult,
   ImapFolderSyncResult,
 } from "@/services/imap/tauriCommands";
-import type { QuickStep } from "@/services/quickSteps/types";
 import type { SendAsAlias } from "@/services/db/sendAsAliases";
 
 export function createMockParsedMessage(
@@ -118,12 +117,6 @@ export function createMockGmailAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
-    caldav_url: null,
-    caldav_username: null,
-    caldav_password: null,
-    caldav_principal_url: null,
-    caldav_home_url: null,
-    calendar_provider: null,
     accept_invalid_certs: 0,
     ...overrides,
   };
@@ -158,12 +151,6 @@ export function createMockImapAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
-    caldav_url: null,
-    caldav_username: null,
-    caldav_password: null,
-    caldav_principal_url: null,
-    caldav_home_url: null,
-    calendar_provider: null,
     accept_invalid_certs: 0,
     ...overrides,
   };
@@ -198,12 +185,6 @@ export function createMockDbAccount(
     oauth_client_id: null,
     oauth_client_secret: null,
     imap_username: null,
-    caldav_url: null,
-    caldav_username: null,
-    caldav_password: null,
-    caldav_principal_url: null,
-    caldav_home_url: null,
-    calendar_provider: null,
     accept_invalid_certs: 0,
     ...overrides,
   };
@@ -308,25 +289,6 @@ export function createMockImapFolderSyncResult(
       exists: messages.length,
       ...statusOverrides,
     }),
-  };
-}
-
-export function createMockQuickStep(
-  overrides: Partial<QuickStep> = {},
-): QuickStep {
-  return {
-    id: "qs-1",
-    accountId: "acct-1",
-    name: "Test Quick Step",
-    description: null,
-    shortcut: null,
-    actions: [],
-    icon: null,
-    isEnabled: true,
-    continueOnError: false,
-    sortOrder: 0,
-    createdAt: Date.now(),
-    ...overrides,
   };
 }
 

@@ -6,7 +6,6 @@ import { Composer } from "./components/composer/Composer";
 import { UndoSendToast } from "./components/composer/UndoSendToast";
 import { CommandPalette } from "./components/search/CommandPalette";
 import { ShortcutsHelp } from "./components/search/ShortcutsHelp";
-import { AskInbox } from "./components/search/AskInbox";
 import { useUIStore } from "./stores/uiStore";
 import { useAccountStore } from "./stores/accountStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -33,10 +32,6 @@ import {
   startFollowUpChecker,
   stopFollowUpChecker,
 } from "./services/followup/followupManager";
-import {
-  startBundleChecker,
-  stopBundleChecker,
-} from "./services/bundles/bundleManager";
 import { initNotifications } from "./services/notifications/notificationManager";
 import {
   initGlobalShortcut,
@@ -63,8 +58,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { DndProvider } from "./components/dnd/DndProvider";
 import { TitleBar } from "./components/layout/TitleBar";
 import { useShortcutStore } from "./stores/shortcutStore";
-import { getIncompleteTaskCount } from "./services/db/tasks";
-import { useTaskStore } from "./stores/taskStore";
 import { ContextMenuPortal } from "./components/ui/ContextMenuPortal";
 import { MoveToFolderDialog } from "./components/email/MoveToFolderDialog";
 import { OfflineBanner } from "./components/ui/OfflineBanner";
@@ -105,7 +98,6 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [showAskInbox, setShowAskInbox] = useState(false);
   const [moveToFolderState, setMoveToFolderState] = useState<{ open: boolean; threadIds: string[] }>({ open: false, threadIds: [] });
   const deepLinkCleanupRef = useRef<(() => void) | undefined>(undefined);
 
@@ -152,19 +144,16 @@ export default function App() {
   useEffect(() => {
     const togglePalette = () => setShowCommandPalette((p) => !p);
     const toggleHelp = () => setShowShortcutsHelp((p) => !p);
-    const toggleAskInbox = () => setShowAskInbox((p) => !p);
     const handleMoveToFolder = (e: Event) => {
       const detail = (e as CustomEvent<{ threadIds: string[] }>).detail;
       setMoveToFolderState({ open: true, threadIds: detail.threadIds });
     };
     window.addEventListener("velo-toggle-command-palette", togglePalette);
     window.addEventListener("velo-toggle-shortcuts-help", toggleHelp);
-    window.addEventListener("velo-toggle-ask-inbox", toggleAskInbox);
     window.addEventListener("velo-move-to-folder", handleMoveToFolder);
     return () => {
       window.removeEventListener("velo-toggle-command-palette", togglePalette);
       window.removeEventListener("velo-toggle-shortcuts-help", toggleHelp);
-      window.removeEventListener("velo-toggle-ask-inbox", toggleAskInbox);
       window.removeEventListener("velo-move-to-folder", handleMoveToFolder);
     };
   }, []);
@@ -265,22 +254,10 @@ export default function App() {
           ui.setColorTheme(savedColorTheme as ColorThemeId);
         }
 
-        // Restore inbox view mode
-        const savedViewMode = await getSetting("inbox_view_mode");
-        if (savedViewMode === "unified" || savedViewMode === "split") {
-          ui.setInboxViewMode(savedViewMode);
-        }
-
         // Restore reduce motion preference
         const savedReduceMotion = await getSetting("reduce_motion");
         if (savedReduceMotion === "true") {
           ui.setReduceMotion(true);
-        }
-
-        // Restore task sidebar visibility
-        const savedTaskSidebar = await getSetting("task_sidebar_visible");
-        if (savedTaskSidebar === "true") {
-          ui.setTaskSidebarVisible(true);
         }
 
         // Restore sidebar nav config
@@ -310,10 +287,9 @@ export default function App() {
         // Initialize Gmail clients for existing accounts
         await initializeClients();
 
-        // Fetch send-as aliases for each active email account (skip CalDAV-only)
+        // Fetch send-as aliases for each active email account
         const activeIds = mapped.filter((a) => a.isActive).map((a) => a.id);
-        const emailAccountIds = mapped.filter((a) => a.isActive && a.provider !== "caldav").map((a) => a.id);
-        for (const accountId of emailAccountIds) {
+        for (const accountId of activeIds) {
           try {
             const client = await getGmailClient(accountId);
             await fetchSendAsAliases(client, accountId);
@@ -327,11 +303,10 @@ export default function App() {
           startBackgroundSync(activeIds);
         }
 
-        // Start snooze, scheduled send, follow-up, bundle, and queue checkers
+        // Start snooze, scheduled send, follow-up, and queue checkers
         startSnoozeChecker();
         startScheduledSendChecker();
         startFollowUpChecker();
-        startBundleChecker();
         startQueueProcessor();
         startPreCacheManager();
 
@@ -346,13 +321,6 @@ export default function App() {
 
         // Initial badge count
         await updateBadgeCount();
-
-        // Load initial task count
-        const activeAcct = useAccountStore.getState().activeAccountId;
-        if (activeAcct) {
-          const count = await getIncompleteTaskCount(activeAcct);
-          useTaskStore.getState().setIncompleteCount(count);
-        }
 
         // Start auto-update checker
         startUpdateChecker();
@@ -370,7 +338,6 @@ export default function App() {
       stopSnoozeChecker();
       stopScheduledSendChecker();
       stopFollowUpChecker();
-      stopBundleChecker();
       stopQueueProcessor();
       stopPreCacheManager();
       stopUpdateChecker();
@@ -381,9 +348,8 @@ export default function App() {
   }, []);
 
   // Listen for sync status updates
-  const backfillDoneRef = useRef(false);
   useEffect(() => {
-    const unsub = onSyncStatus((accountId, status, progress, error) => {
+    const unsub = onSyncStatus((_accountId, status, progress, error) => {
       if (status === "syncing") {
         if (progress) {
           if (progress.phase === "messages") {
@@ -403,14 +369,6 @@ export default function App() {
         setTimeout(() => setSyncStatus(null), 2_000);
         window.dispatchEvent(new Event("velo-sync-done"));
         updateBadgeCount();
-
-        // Backfill uncategorized threads after first successful sync
-        if (!backfillDoneRef.current) {
-          backfillDoneRef.current = true;
-          import("./services/categorization/backfillService")
-            .then(({ backfillUncategorizedThreads }) => backfillUncategorizedThreads(accountId))
-            .catch((err) => console.error("Backfill error:", err));
-        }
       } else if (status === "error") {
         setSyncStatus(error ? `Sync failed: ${formatSyncError(error)}` : "Sync failed");
         // Still dispatch sync-done so the UI refreshes with any partially stored data
@@ -511,12 +469,10 @@ export default function App() {
       // timer so it doesn't queue behind delta syncs for existing accounts.
       syncAccount(newest.id);
 
-      // Fetch send-as aliases in the background (non-blocking, skip CalDAV-only accounts)
-      if (newest.provider !== "caldav") {
-        getGmailClient(newest.id)
-          .then((client) => fetchSendAsAliases(client, newest.id))
-          .catch((err) => console.warn(`Failed to fetch send-as aliases for new account:`, err));
-      }
+      // Fetch send-as aliases in the background (non-blocking)
+      getGmailClient(newest.id)
+        .then((client) => fetchSendAsAliases(client, newest.id))
+        .catch((err) => console.warn(`Failed to fetch send-as aliases for new account:`, err));
     }
 
     // Restart background sync for all accounts, but skip the immediate run
@@ -596,12 +552,6 @@ export default function App() {
         isOpen={showShortcutsHelp}
         onClose={() => setShowShortcutsHelp(false)}
       />
-      <ErrorBoundary name="AskInbox">
-        <AskInbox
-          isOpen={showAskInbox}
-          onClose={() => setShowAskInbox(false)}
-        />
-      </ErrorBoundary>
       <ContextMenuPortal />
       <MoveToFolderDialog
         isOpen={moveToFolderState.open}

@@ -5,12 +5,11 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ```
 +--------------------------+
 |     React 19 + Zustand   |   UI Layer
-|  Components + 9 Stores   |   (TypeScript)
+|  Components + 7 Stores   |   (TypeScript)
 +--------------------------+
 |     Service Layer         |   Business Logic
 |  Email Provider / Gmail / |   (TypeScript)
-|  IMAP / DB / AI / Sync /  |
-|  Calendar / Bundles /     |
+|  IMAP / DB / Sync /       |
 |  Filters / Notifications  |
 +--------------------------+
 |     Tauri v2 + Rust       |   Native Layer
@@ -31,7 +30,7 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 | **Backend** | Rust |
 | **Database** | SQLite (via tauri-plugin-sql) |
 | **Search** | FTS5 with trigram tokenizer |
-| **AI** | Anthropic Claude, OpenAI GPT, Google Gemini (user-selectable models per provider) |
+| **AI** | Provider plumbing only (Claude, OpenAI, Gemini, Ollama, Copilot) -- not wired to any active feature, kept for future use via Settings > AI |
 | **Icons** | Lucide React |
 | **Drag & Drop** | @dnd-kit |
 | **Testing** | Vitest + Testing Library |
@@ -39,10 +38,10 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ## Data Flow
 
 1. **Sync** -- Background sync every 60s. Gmail accounts use Gmail History API (delta sync, falls back to full sync if history expires ~30 days). IMAP accounts use UIDVALIDITY/last_uid tracking for efficient delta sync.
-2. **Storage** -- All messages, threads, labels, contacts, calendar events, and AI results stored in local SQLite (34 tables) with FTS5 full-text indexing.
-3. **State** -- Eight Zustand stores manage UI state. No middleware, no persistence needed -- ephemeral state rebuilds from SQLite on startup.
+2. **Storage** -- All messages, threads, labels, and contacts stored in local SQLite (35 tables, some dormant from removed features -- see Database section) with FTS5 full-text indexing.
+3. **State** -- Seven Zustand stores manage UI state. No middleware, no persistence needed -- ephemeral state rebuilds from SQLite on startup.
 4. **Rendering** -- Email HTML is sanitized with DOMPurify and rendered in sandboxed iframes. Remote images blocked by default.
-5. **Background services** -- Seven interval checkers run continuously: sync (60s), snooze (60s), scheduled send (60s), follow-up reminders (60s), newsletter bundles (60s), offline queue processor (30s), and attachment pre-cache (15min).
+5. **Background services** -- Six interval checkers run continuously: sync (60s), snooze (60s), scheduled send (60s), follow-up reminders (60s), offline queue processor (30s), and attachment pre-cache (15min).
 6. **Security** -- Phishing link detection scores message links with 10 heuristic rules. SPF/DKIM/DMARC authentication headers parsed and displayed as badges.
 
 ## Project Structure
@@ -50,65 +49,51 @@ Velo follows a **three-layer architecture** with clear separation of concerns.
 ```
 velo/
 ├── src/
-│   ├── components/           # React components (14 groups, ~94 files)
-│   │   ├── layout/           # Sidebar, EmailList, ReadingPane, TitleBar
+│   ├── components/           # React components (9 groups, ~65 files)
+│   │   ├── layout/           # Sidebar, EmailList, MailLayout, ReadingPane, TitleBar
 │   │   ├── email/            # ThreadView, MessageItem, EmailRenderer,
-│   │   │                     # ContactSidebar, SmartReplySuggestions,
-│   │   │                     # InlineReply, ThreadSummary, FollowUpDialog,
+│   │   │                     # ContactSidebar, InlineReply, FollowUpDialog,
 │   │   │                     # AuthBadge, AuthWarningBanner, PhishingBanner,
-│   │   │                     # LinkConfirmDialog, CategoryTabs
+│   │   │                     # LinkConfirmDialog, MoveToFolderDialog
 │   │   ├── composer/         # Composer, AddressInput, EditorToolbar,
-│   │   │                     # AiAssistPanel, ScheduleSendDialog, FromSelector
-│   │   ├── search/           # CommandPalette, SearchBar, ShortcutsHelp, AskInbox
+│   │   │                     # ScheduleSendDialog, FromSelector
+│   │   ├── search/           # CommandPalette, SearchBar, ShortcutsHelp
 │   │   ├── settings/         # SettingsPage, FilterEditor, LabelEditor,
-│   │   │                     # SubscriptionManager, ContactEditor,
-│   │   │                     # QuickStepEditor, SmartFolderEditor
+│   │   │                     # SubscriptionManager, ContactEditor
 │   │   ├── accounts/         # AddAccount, AddImapAccount, AccountSwitcher, SetupClientId
-│   │   ├── calendar/         # CalendarPage, MonthView, WeekView, DayView,
-│   │   │                     # EventCard, EventCreateModal
-│   │   ├── attachments/      # AttachmentLibrary, AttachmentGridItem, AttachmentListItem
-│   │   ├── tasks/            # TasksPage, TaskItem, TaskSidebar, TaskQuickAdd,
-│   │   │                     # AiTaskExtractDialog
-│   │   ├── help/             # HelpPage, HelpSidebar, HelpSearchBar,
-│   │   │                     # HelpCard, HelpCardGrid, HelpTooltip
 │   │   ├── labels/           # LabelForm
 │   │   ├── dnd/              # DndProvider (drag threads → sidebar labels)
 │   │   └── ui/               # EmptyState, Skeleton, ContextMenu, OfflineBanner, illustrations/
 │   ├── services/             # Business logic layer
-│   │   ├── db/               # SQLite queries (29 files), migrations, FTS5
+│   │   ├── db/               # SQLite queries (24 files), migrations, FTS5
 │   │   ├── email/            # EmailProvider abstraction, providerFactory,
 │   │   │                     # gmailProvider, imapSmtpProvider
 │   │   ├── gmail/            # GmailClient, tokenManager, syncManager
 │   │   ├── imap/             # IMAP sync, folder mapper, auto-discovery,
 │   │   │                     # config builder, Tauri command wrappers
 │   │   ├── threading/        # JWZ threading engine for IMAP conversations
-│   │   ├── ai/               # AI service, 3 providers, categorization, Ask Inbox,
-│   │   │                     # writing style analysis, auto-drafts, task extraction
-│   │   ├── google/           # Google Calendar API
+│   │   ├── ai/               # Provider plumbing only (Claude/OpenAI/Gemini/
+│   │   │                     # Ollama/Copilot) -- not wired to any feature
 │   │   ├── composer/         # Draft auto-save
 │   │   ├── search/           # Query parser, SQL builder
 │   │   ├── filters/          # Auto-apply filter engine
-│   │   ├── categorization/   # Rule-based categorization engine
 │   │   ├── snooze/           # Snooze & scheduled send checkers
 │   │   ├── followup/         # Follow-up reminder checker
-│   │   ├── bundles/          # Newsletter bundle manager
 │   │   ├── notifications/    # OS notification manager
 │   │   ├── contacts/         # Gravatar integration
 │   │   ├── attachments/      # Attachment cache manager, pre-cache manager
 │   │   ├── unsubscribe/      # One-click unsubscribe (RFC 8058)
-│   │   ├── quickSteps/       # Quick step executor, types, defaults
 │   │   ├── queue/            # Offline queue processor
-│   │   ├── tasks/            # Task recurrence manager
 │   │   ├── emailActions.ts   # Centralized email action service (offline-aware)
 │   │   ├── badgeManager.ts   # Taskbar badge count
 │   │   ├── deepLinkHandler.ts # mailto: protocol handler
 │   │   └── globalShortcut.ts # System-wide compose shortcut
-│   ├── stores/               # Zustand stores (9): ui, account, thread,
-│   │                         # composer, label, contextMenu, shortcut, smartFolder, task
+│   ├── stores/               # Zustand stores (7): ui, account, thread,
+│   │                         # composer, label, contextMenu, shortcut
 │   ├── hooks/                # useKeyboardShortcuts, useClickOutside, useContextMenu
 │   ├── utils/                # crypto, date, emailBuilder, sanitize, imageBlocker,
 │   │                         # mailtoParser, fileUtils, templateVariables, noReply
-│   ├── constants/            # Keyboard shortcuts, color themes, help content
+│   ├── constants/            # Keyboard shortcuts, color themes
 │   └── styles/               # Tailwind CSS v4 globals
 ├── src-tauri/
 │   ├── src/                  # Rust backend (tray, OAuth, splash, single-instance,
@@ -147,34 +132,28 @@ All business logic lives in `src/services/` as plain async functions (except `Gm
 
 | Service | Description |
 |---------|-------------|
-| `db/` | SQLite queries (29 files), migrations, FTS5 search |
+| `db/` | SQLite queries (24 files), migrations, FTS5 search |
 | `email/` | EmailProvider abstraction, provider factory, Gmail/IMAP adapters |
 | `gmail/` | Gmail client, token management, sync engine |
 | `imap/` | IMAP sync, folder-to-label mapping, auto-discovery, Tauri command wrappers |
 | `threading/` | JWZ threading algorithm for IMAP message grouping |
-| `ai/` | AI service with 3 providers (selectable models), categorization, Ask Inbox, writing style analysis, auto-drafts, task extraction |
-| `google/` | Google Calendar API |
+| `ai/` | Provider plumbing only (Claude, OpenAI, Gemini, Ollama, Copilot) -- not wired to any active feature, kept for future use |
 | `composer/` | Draft auto-save (3s debounce) |
 | `search/` | Gmail-style query parser, SQL builder |
 | `filters/` | Auto-apply filter engine (AND logic) |
-| `categorization/` | Rule-based categorization before AI fallback |
 | `snooze/` | Snooze & scheduled send background checkers |
 | `followup/` | Follow-up reminder checker |
-| `bundles/` | Newsletter bundling with delivery schedules |
-| `notifications/` | OS notifications with VIP filtering |
+| `notifications/` | OS notifications; VIP-only filtering applies only when smart mode is on AND VIPs are configured |
 | `contacts/` | Gravatar integration |
 | `attachments/` | Local attachment caching, pre-cache recent attachments |
 | `unsubscribe/` | One-click unsubscribe (RFC 8058) |
-| `quickSteps/` | Custom action chains with executor engine |
 | `queue/` | Offline queue processor with exponential backoff |
-| `tasks/` | Task recurrence manager |
-| `smartLabels/` | AI-powered auto-labeling with two-phase matching (criteria + AI) |
 
 **Root-level services:** `emailActions.ts` (centralized offline-aware email actions), `badgeManager.ts` (taskbar badge), `deepLinkHandler.ts` (mailto: protocol), `globalShortcut.ts` (system-wide compose)
 
 ## UI Layer
 
-Nine Zustand stores manage ephemeral UI state:
+Seven Zustand stores manage ephemeral UI state:
 
 | Store | Purpose |
 |-------|---------|
@@ -185,14 +164,14 @@ Nine Zustand stores manage ephemeral UI state:
 | `labelStore` | Label list, label operations |
 | `contextMenuStore` | Right-click context menu state |
 | `shortcutStore` | Custom keyboard shortcut bindings |
-| `smartFolderStore` | Saved searches with dynamic query tokens |
-| `taskStore` | Task list, filters, grouping, thread tasks, incomplete count |
 
 ## Database
 
 SQLite via Tauri SQL plugin. 19 migrations, 35 tables total.
 
-Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `ai_cache`, `thread_categories`, `calendar_events`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `bundle_rules`, `bundled_threads`, `send_as_aliases`, `smart_folders`, `link_scan_results`, `phishing_allowlist`, `quick_steps`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence), `writing_style_profiles` (AI writing style per account), `tasks` (full task management with priorities, subtasks, recurrence), `task_tags` (custom task tag colors), `smart_label_rules` (AI-powered auto-labeling rules).
+Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS5 index, `auth_results`, IMAP headers, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts`, `attachments` (with `imap_part_id`), `filter_rules`, `scheduled_emails`, `templates`, `signatures`, `image_allowlist`, `settings`, `follow_up_reminders`, `notification_vips`, `unsubscribe_actions`, `send_as_aliases`, `link_scan_results`, `phishing_allowlist`, `folder_sync_state` (IMAP sync tracking), `pending_operations` (offline action queue), `local_drafts` (offline draft persistence).
+
+**Dormant tables** (schema-only leftovers from removed features; `migrations.ts` is never edited retroactively so these are never dropped) with no reachable code path at runtime: `ai_cache` (`db/aiCache.ts` still defines queries for it but is kept, currently caller-less, as part of the AI provider plumbing for future features), `thread_categories`, `calendar_events`, `calendars`, `bundle_rules`, `bundled_threads`, `smart_folders`, `quick_steps`, `writing_style_profiles`, `tasks`, `task_tags`, `smart_label_rules`.
 
 ## Startup Sequence
 
@@ -200,8 +179,8 @@ Key tables: `accounts` (with `provider`, IMAP/SMTP fields), `messages` (with FTS
 2. Restore persisted settings (theme, sidebar, density, font scale, reading pane, etc.)
 3. Load custom keyboard shortcuts
 4. Initialize email providers for all accounts (Gmail API clients + IMAP providers), sync send-as aliases for Gmail accounts
-5. Start background sync (60s interval), backfill uncategorized threads
-6. Start background checkers (snooze, scheduled send, follow-up, bundles, queue processor, attachment pre-cache)
+5. Start background sync (60s interval)
+6. Start background checkers (snooze, scheduled send, follow-up, queue processor, attachment pre-cache)
 7. Initialize network status detection (online/offline listeners)
 8. Initialize OS notifications
 9. Register global compose shortcut

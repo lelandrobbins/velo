@@ -25,17 +25,8 @@ export function useActiveLabel(): string {
     if (match.routeId === "/label/$labelId" || match.routeId === "/label/$labelId/thread/$threadId") {
       return (match.params as { labelId: string }).labelId;
     }
-    if (match.routeId === "/smart-folder/$folderId" || match.routeId === "/smart-folder/$folderId/thread/$threadId") {
-      return `smart-folder:${(match.params as { folderId: string }).folderId}`;
-    }
     if (match.routeId === "/settings/$tab" || match.routeId === "/settings") {
       return "settings";
-    }
-    if (match.routeId === "/calendar") {
-      return "calendar";
-    }
-    if (match.routeId === "/help/$topic" || match.routeId === "/help") {
-      return "help";
     }
   }
   return "inbox";
@@ -53,20 +44,6 @@ export function useSelectedThreadId(): string | null {
     }
   }
   return null;
-}
-
-/**
- * Get the active category from search params (only relevant on inbox in split mode).
- */
-export function useActiveCategory(): string {
-  const matches = useMatchesSafe();
-  for (const match of matches) {
-    const search = (match as { search?: Record<string, unknown> }).search;
-    if (search && typeof search["category"] === "string") {
-      return search["category"];
-    }
-  }
-  return "Primary";
 }
 
 /**

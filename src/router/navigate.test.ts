@@ -59,27 +59,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should navigate to calendar", () => {
-      navigateToLabel("calendar");
-      expect(mockNavigate).toHaveBeenCalledWith({ to: "/calendar" });
-    });
-
-    it("should navigate to smart folders", () => {
-      navigateToLabel("smart-folder:folder-1");
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId",
-        params: { folderId: "folder-1" },
-      });
-    });
-
-    it("should navigate to smart folder with thread", () => {
-      navigateToLabel("smart-folder:folder-1", { threadId: "t-1" });
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId/thread/$threadId",
-        params: { folderId: "folder-1", threadId: "t-1" },
-      });
-    });
-
     it("should navigate to custom labels via /label/$labelId", () => {
       navigateToLabel("Label_123");
       expect(mockNavigate).toHaveBeenCalledWith({
@@ -96,23 +75,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should pass category as search param for system labels", () => {
-      navigateToLabel("inbox", { category: "Updates" });
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/mail/$label",
-        params: { label: "inbox" },
-        search: { category: "Updates" },
-      });
-    });
-
-    it("should navigate to system label with thread and category", () => {
-      navigateToLabel("inbox", { category: "Social", threadId: "t-1" });
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/mail/$label/thread/$threadId",
-        params: { label: "inbox", threadId: "t-1" },
-        search: { category: "Social" },
-      });
-    });
   });
 
   describe("navigateToThread", () => {
@@ -136,16 +98,6 @@ describe("navigate", () => {
       });
     });
 
-    it("should append thread to /smart-folder/$folderId route", () => {
-      mockState.location.pathname = "/smart-folder/sf-1";
-      navigateToThread("thread-abc");
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId/thread/$threadId",
-        params: { folderId: "sf-1", threadId: "thread-abc" },
-        search: {},
-      });
-    });
-
     it("should fallback to inbox when on unknown route", () => {
       mockState.location.pathname = "/settings/general";
       navigateToThread("thread-abc");
@@ -157,12 +109,12 @@ describe("navigate", () => {
 
     it("should preserve search params when navigating to thread", () => {
       mockState.location.pathname = "/mail/inbox";
-      mockState.location.search = { category: "Updates" };
+      mockState.location.search = { q: "hello" };
       navigateToThread("thread-abc");
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/mail/$label/thread/$threadId",
         params: { label: "inbox", threadId: "thread-abc" },
-        search: { category: "Updates" },
+        search: { q: "hello" },
       });
     });
   });
@@ -208,19 +160,8 @@ describe("navigate", () => {
       });
     });
 
-    it("should go to parent /smart-folder/$folderId from thread route", () => {
-      mockState.location.pathname = "/smart-folder/sf-1/thread/t-1";
-      mockState.location.search = {};
-      navigateBack();
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: "/smart-folder/$folderId",
-        params: { folderId: "sf-1" },
-        search: {},
-      });
-    });
-
     it("should go to inbox when not on a thread route", () => {
-      mockState.location.pathname = "/calendar";
+      mockState.location.pathname = "/attachments";
       navigateBack();
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/mail/$label",
@@ -230,12 +171,12 @@ describe("navigate", () => {
 
     it("should preserve search params when navigating back", () => {
       mockState.location.pathname = "/mail/inbox/thread/t-1";
-      mockState.location.search = { category: "Social" };
+      mockState.location.search = { q: "hello" };
       navigateBack();
       expect(mockNavigate).toHaveBeenCalledWith({
         to: "/mail/$label",
         params: { label: "inbox" },
-        search: { category: "Social" },
+        search: { q: "hello" },
       });
     });
   });
@@ -262,23 +203,11 @@ describe("navigate", () => {
       expect(getActiveLabel()).toBe("Label_42");
     });
 
-    it("should return smart-folder: prefix from smart folder route", () => {
-      mockState.matches = [
-        { routeId: "/smart-folder/$folderId", params: { folderId: "sf-1" } },
-      ];
-      expect(getActiveLabel()).toBe("smart-folder:sf-1");
-    });
-
     it("should return 'settings' from settings route", () => {
       mockState.matches = [
         { routeId: "/settings/$tab", params: { tab: "general" } },
       ];
       expect(getActiveLabel()).toBe("settings");
-    });
-
-    it("should return 'calendar' from calendar route", () => {
-      mockState.matches = [{ routeId: "/calendar", params: {} }];
-      expect(getActiveLabel()).toBe("calendar");
     });
 
     it("should return 'inbox' as fallback", () => {

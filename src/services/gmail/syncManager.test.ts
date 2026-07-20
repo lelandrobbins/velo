@@ -32,19 +32,6 @@ vi.mock("../db/folderSyncState", () => ({
 vi.mock("../oauth/oauthTokenManager", () => ({
   ensureFreshToken: vi.fn(),
 }));
-vi.mock("../calendar/providerFactory", () => ({
-  hasCalendarSupport: vi.fn().mockResolvedValue(false),
-  getCalendarProvider: vi.fn(),
-}));
-vi.mock("../db/calendars", () => ({
-  getVisibleCalendars: vi.fn().mockResolvedValue([]),
-  upsertCalendar: vi.fn(),
-  updateCalendarSyncToken: vi.fn(),
-}));
-vi.mock("../db/calendarEvents", () => ({
-  upsertCalendarEvent: vi.fn(),
-  deleteEventByRemoteId: vi.fn(),
-}));
 
 // Import after mocks
 import {
