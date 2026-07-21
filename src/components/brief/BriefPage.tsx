@@ -3,6 +3,7 @@ import { RefreshCw, Sparkles } from "lucide-react";
 import { HomePage } from "../home/HomePage";
 import { EmailListSkeleton } from "../ui/Skeleton";
 import { useAccountStore } from "@/stores/accountStore";
+import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { navigateToThread, navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { isAiAvailable } from "@/services/ai/providerManager";
@@ -114,6 +115,17 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [forceRegenerate]);
+
+  // The memo view (as opposed to the HomePage fallback branches below) renders
+  // its own list, so the global threadStore must not still hold another
+  // view's threads — otherwise keyboard shortcuts like Ctrl+A + e would act
+  // on invisible threads.
+  useEffect(() => {
+    if (aiReady !== false && !(slowFirstRun && !brief)) {
+      useThreadStore.getState().setThreads([]);
+      useThreadStore.getState().clearMultiSelect();
+    }
+  }, [aiReady, slowFirstRun, brief]);
 
   // No AI configured → setup card above the tabbed Home (the fallback landing view)
   if (aiReady === false) {
