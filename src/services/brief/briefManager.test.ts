@@ -113,7 +113,7 @@ describe("generateBrief", () => {
 
 describe("getCachedBrief", () => {
   it("round-trips the stored brief", async () => {
-    const stored = { memo: "m", segments: [], generatedAt: 1, manifestHash: "h", empty: false };
+    const stored = { memo: "m", blocks: [], generatedAt: 1, manifestHash: "h", empty: false };
     vi.mocked(getAiCache).mockResolvedValue(JSON.stringify(stored));
     expect(await getCachedBrief("a1")).toEqual(stored);
   });
