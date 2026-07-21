@@ -45,11 +45,12 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
    - `gmail/` — `GmailClient` class auto-refreshes tokens 5min before expiry, retries on 401. `tokenManager.ts` caches clients per account in a Map. `syncManager.ts` orchestrates sync (60s interval) for both Gmail and IMAP accounts via the EmailProvider abstraction. `sync.ts` does initial sync (365 days, configurable via `sync_period_days` setting) and delta sync via Gmail History API; falls back to full sync if history expired (~30 days). `authParser.ts` parses SPF/DKIM/DMARC from `Authentication-Results` headers. `sendAs.ts` fetches send-as aliases from Gmail API.
    - `imap/` — IMAP-specific services. `tauriCommands.ts` wraps Rust IMAP Tauri commands. `imapSync.ts` orchestrates IMAP initial sync (batch fetch, 50 messages/batch) and delta sync via UIDVALIDITY/last_uid tracking. `folderMapper.ts` maps IMAP folders (special-use flags + well-known names) to Gmail-style labels. `autoDiscovery.ts` provides pre-configured server settings for 7 major providers (Outlook, Yahoo, iCloud, AOL, Zoho, FastMail, GMX). `imapConfigBuilder.ts` builds IMAP/SMTP configs from account records. `messageHelper.ts` handles IMAP message utilities.
    - `threading/` — JWZ threading algorithm (`threadBuilder.ts`) for grouping IMAP messages into conversation threads using Message-ID, References, and In-Reply-To headers. Supports incremental threading, phantom containers for missing references, and subject-based merging.
-   - `ai/` — Provider plumbing consumed by the Brief pipeline (`services/brief/`), which drives per-thread extraction and memo composition, and the Ledger pipeline (`services/ledger/`), which drives obligation extraction and nudge drafting (thread summaries, smart replies, AI compose, auto-categorization, smart labels, Ask Inbox, and task extraction remain removed). `providerManager.ts` manages provider clients (`providers/claudeProvider.ts`, `openaiProvider.ts`, `geminiProvider.ts`, `ollamaProvider.ts`, `copilotProvider.ts`). `providerFactory.ts`, `errors.ts`, and `types.ts` define the shared abstraction. Settings > AI still exposes provider selection, API key entry, and connection testing.
+   - `ai/` — Provider plumbing consumed by the Brief pipeline (`services/brief/`), which drives per-thread extraction and memo composition, and the Ledger pipeline (`services/ledger/`), which drives obligation extraction and nudge drafting, and the Vault pipeline (`services/records/`), which drives record extraction and archive Q&A (thread summaries, smart replies, AI compose, auto-categorization, smart labels, Ask Inbox, and task extraction remain removed). `providerManager.ts` manages provider clients (`providers/claudeProvider.ts`, `openaiProvider.ts`, `geminiProvider.ts`, `ollamaProvider.ts`, `copilotProvider.ts`). `providerFactory.ts`, `errors.ts`, and `types.ts` define the shared abstraction. Settings > AI still exposes provider selection, API key entry, and connection testing.
    - `composer/` — `draftAutoSave.ts` auto-saves drafts every 3 seconds (debounced). Watches composer state changes via Zustand subscribe.
    - `search/` — `searchParser.ts` parses Gmail-style operators (`from:`, `to:`, `subject:`, `has:attachment`, `is:unread/read/starred`, `before:`, `after:`, `label:`). `searchQueryBuilder.ts` builds SQL queries from parsed operators.
    - `brief/` — two-stage extract/compose memo pipeline (`briefSchema`, `briefWindow`, `extractor`, `composer`, `briefManager`): per-thread extractions cached in `ai_cache` by stateKey, compose gated by manifest hash, provider-agnostic via `services/ai`, link tokens validated against the manifest.
    - `ledger/` — obligations pipeline (`candidates`, `extractor`, `ledger`, `ledgerManager`, `obligationLines`, `nudge`): deterministic sent-mail candidates → cached `ledger_extract_v2` extractions in `ai_cache` → entries derived at read time; `ledger_overrides` stores dismiss/done/pin; the Brief weaves in top obligations.
+   - `records/` — Records Vault pipeline (`candidates`, `records`, `extractor`, `recordsManager`, `ask`): deterministic feed+cue candidate filter since a per-account 90-day floor (`records_vault_floor:{accountId}` setting) → cached `records_extract_v1` extractions in `ai_cache` (suppression list carried across re-extractions) → materialized `records` table + `records_fts` FTS5 index; two-stage ask flow answers questions citing manifest-validated record ids.
    - `triage/` — `noiseClassifier.ts` deterministic signal/feed classification for the Home landing view (List-Unsubscribe header, no-reply sender patterns, calendar-invite subjects/senders; conservative — defaults to signal), plus `categorizeFeedThread` grouping feed items into calendar / fyi (transactional, security, logistics cues) / junk. Foundation for the milestone-2 noise engine.
    - `filters/` — `filterEngine.ts` auto-applies filters to incoming messages during sync. Criteria use AND logic (case-insensitive substring matching). Actions: applyLabel, archive, trash, star, markRead.
    - `snooze/` — Background interval checkers for snooze unsnooze and scheduled sends.
@@ -64,11 +65,12 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
 
 ### Component organization
 
-12 groups, ~65 component files:
+13 groups, ~65 component files:
 - `layout/` — Sidebar, EmailList, MailLayout, ReadingPane, TitleBar
 - `brief/` — BriefPage (default landing view at `/mail/brief`: chief-of-staff memo with validated thread links, filed footer; falls back to the tabbed Home when no AI provider is configured)
 - `home/` — HomePage (Focus/Feed tabs view at `/mail/home` (fallback landing when AI is unconfigured): Focus/Feed tabs via `services/triage/noiseClassifier`; Feed sub-tabbed by Calendar/FYI/Likely junk with per-tab archive-all + undo toast, Shift+E)
 - `ledger/` — LedgerPage (waiting-on and promise lists derived from sent mail; nudge/dismiss/done; `g l`)
+- `vault/` — VaultPage (records archive at `/mail/vault`: natural-language ask box + filterable record list with click-to-copy reference numbers and "Not a record" overturn; `g v`)
 - `email/` — ThreadView, ThreadCard, MessageItem, EmailRenderer, ActionBar, AttachmentList, SnoozeDialog, ContactSidebar, FollowUpDialog, InlineAttachmentPreview, InlineReply, AuthBadge, AuthWarningBanner, PhishingBanner, LinkConfirmDialog, MoveToFolderDialog, RawMessageModal
 - `composer/` — Composer (TipTap v3 rich text editor), AddressInput, EditorToolbar, AttachmentPicker, ScheduleSendDialog, SignatureSelector, TemplatePicker, UndoSendToast, FromSelector
 - `search/` — CommandPalette, SearchBar, ShortcutsHelp
@@ -89,7 +91,7 @@ Thread pop-out windows via `ThreadWindow.tsx`. Entry point in `main.tsx` checks 
 3. Load custom keyboard shortcuts (`shortcutStore.loadKeyMap()`)
 4. `getAllAccounts()` → `initializeClients()` (Gmail API clients) / create IMAP providers → `fetchSendAsAliases()` per Gmail account
 5. `startBackgroundSync()` (60s interval)
-6. `startBriefManager()` (generates/refreshes the Brief memo per active account) + `startLedgerManager()` (sync-triggered, debounced obligation extraction refresh + pinned-due notifications)
+6. `startBriefManager()` (generates/refreshes the Brief memo per active account) + `startLedgerManager()` (sync-triggered, debounced obligation extraction refresh + pinned-due notifications) + `startRecordsManager()` (sync-triggered, debounced record extraction, ~20 threads/pass)
 7. `startSnoozeChecker()` + `startScheduledSendChecker()` (60s intervals) + `startQueueProcessor()` (30s) + `startPreCacheManager()` (15min)
 8. Initialize network status detection (`online`/`offline` window events → `uiStore.setOnline()`, triggers queue flush on reconnect)
 9. `initNotifications()` (request OS permission)
@@ -101,7 +103,7 @@ Thread pop-out windows via `ThreadWindow.tsx`. Entry point in `main.tsx` checks 
 
 ### Cross-component communication
 
-Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-toggle-shortcuts-help`, `velo-move-to-folder`. Tray emits `tray-check-mail` via Tauri event system. `single-instance-args` event for deep link forwarding.
+Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-toggle-shortcuts-help`, `velo-move-to-folder`, `velo-records-updated`. Tray emits `tray-check-mail` via Tauri event system. `single-instance-args` event for deep link forwarding.
 
 ### Keyboard shortcuts
 
@@ -133,6 +135,7 @@ Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-tog
 | `Ctrl+Shift+A` | Select all threads from current position |
 | `g` then `h` | Go to Brief |
 | `g` then `l` | Go to Ledger |
+| `g` then `v` | Go to Vault |
 | `g` then `i` | Go to Inbox |
 | `g` then `s` | Go to Starred |
 | `g` then `t` | Go to Sent |
@@ -158,13 +161,13 @@ Tailwind CSS v4 — uses `@import "tailwindcss"`, `@theme {}` for custom propert
 
 Vitest + jsdom. Setup file: `src/test/setup.ts` (imports `@testing-library/jest-dom/vitest`). Config: `globals: true` (no imports needed for `describe`, `it`, `expect`). Tests are colocated with source files (e.g., `uiStore.test.ts` next to `uiStore.ts`). Zustand test pattern: `useStore.setState()` in beforeEach, assert via `.getState()`.
 
-117 test files across stores (6), services (63), utils (14), components (28), constants (2), router (1), hooks (2), and config (1).
+123 test files across stores (6), services (68), utils (14), components (29), constants (2), router (1), hooks (2), and config (1).
 
 ## Database
 
-SQLite via Tauri SQL plugin. 24 migrations (version-tracked in `_migrations` table, transactional). Custom `splitStatements()` handles BEGIN...END blocks in triggers.
+SQLite via Tauri SQL plugin. 25 migrations (version-tracked in `_migrations` table, transactional). Custom `splitStatements()` handles BEGIN...END blocks in triggers.
 
-Key tables (36 total): `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP host/port/security fields, `auth_method`, encrypted `imap_password`, optional `imap_username`), `messages` (with FTS5 index `messages_fts`, `auth_results`, `message_id_header`, `references_header`, `in_reply_to_header`, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts` (frequency-ranked for autocomplete, with `first_contacted_at`), `attachments` (with `cached_at`, `cache_size`, `imap_part_id`), `filter_rules` (criteria/actions as JSON), `scheduled_emails` (status: pending/sent/failed), `templates` (with optional keyboard shortcut), `signatures`, `image_allowlist`, `settings` (key-value store), `notification_vips`, `unsubscribe_actions`, `send_as_aliases`, `link_scan_results`, `phishing_allowlist`, `folder_sync_state` (IMAP UIDVALIDITY/last_uid/modseq tracking per folder), `pending_operations` (offline action queue with retry/backoff), `local_drafts` (offline draft persistence), `ai_cache` (Brief and Ledger pipelines: per-thread extractions and the composed Brief memo, keyed by accountId/threadId/type; extraction rows self-invalidate via an embedded stateKey, the memo row via an embedded manifestHash), `ledger_overrides` (dismiss/done/pin state per account/thread/kind, unique on account_id+thread_id+kind), `_migrations`.
+Key tables (38 total): `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP host/port/security fields, `auth_method`, encrypted `imap_password`, optional `imap_username`), `messages` (with FTS5 index `messages_fts`, `auth_results`, `message_id_header`, `references_header`, `in_reply_to_header`, `imap_uid`, `imap_folder`), `threads` (with `is_pinned`, `is_muted`), `thread_labels`, `labels` (with `imap_folder_path`, `imap_special_use`), `contacts` (frequency-ranked for autocomplete, with `first_contacted_at`), `attachments` (with `cached_at`, `cache_size`, `imap_part_id`), `filter_rules` (criteria/actions as JSON), `scheduled_emails` (status: pending/sent/failed), `templates` (with optional keyboard shortcut), `signatures`, `image_allowlist`, `settings` (key-value store), `notification_vips`, `unsubscribe_actions`, `send_as_aliases`, `link_scan_results`, `phishing_allowlist`, `folder_sync_state` (IMAP UIDVALIDITY/last_uid/modseq tracking per folder), `pending_operations` (offline action queue with retry/backoff), `local_drafts` (offline draft persistence), `ai_cache` (Brief and Ledger pipelines: per-thread extractions and the composed Brief memo, keyed by accountId/threadId/type; extraction rows self-invalidate via an embedded stateKey, the memo row via an embedded manifestHash), `ledger_overrides` (dismiss/done/pin state per account/thread/kind, unique on account_id+thread_id+kind), `records` (extracted vault records, delete-and-rewritten per thread), `records_fts` (FTS5 over vendor/title/details/reference text, synced by `services/records/records.ts` — no triggers), `_migrations`.
 
 **Dormant tables** — schema-only leftovers from removed features (never dropped since `migrations.ts` is never edited retroactively) with no reachable code path at runtime: `thread_categories` (split-inbox categorization removed), `calendar_events`, `calendars` (calendar feature removed), `bundle_rules`, `bundled_threads` (newsletter bundles removed), `smart_folders` (smart folders removed), `quick_steps` (quick steps removed), `writing_style_profiles` (AI writing style removed), `tasks`, `task_tags` (tasks feature removed), `smart_label_rules` (AI smart labels removed), `follow_up_reminders` (manual follow-ups absorbed into ledger pins).
 
@@ -200,7 +203,7 @@ Key tables (36 total): `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP
 - **Vite HMR**: Uses port 1421 when `TAURI_DEV_HOST` is set
 - **Vite build**: Multi-page — `index.html` (main app) + `splashscreen.html`
 - **Filter engine**: AND logic for criteria, merges actions when multiple filters match same message
-- **AI providers**: `services/ai/` plumbing is consumed by the Brief pipeline (`services/brief/`) for per-thread extraction and memo composition, and by the Ledger pipeline (`services/ledger/`) for obligation extraction. Settings > AI still exposes provider selection, API key storage (SQLite settings table), and connection testing
+- **AI providers**: `services/ai/` plumbing is consumed by the Brief pipeline (`services/brief/`) for per-thread extraction and memo composition, and by the Ledger pipeline (`services/ledger/`) for obligation extraction, and by the Vault pipeline (`services/records/`) for record extraction and archive Q&A. Settings > AI still exposes provider selection, API key storage (SQLite settings table), and connection testing
 - **Claude requests must carry zero browser markers**: Anthropic rejects browser (CORS) requests for orgs with custom retention settings. `claudeProvider` therefore uses the Rust-side fetch from tauri-plugin-http, sends an explicit empty `Origin` (which the plugin's `unsafe-headers` feature — enabled in src-tauri/Cargo.toml — treats as "strip the header"), and nulls the SDK's `anthropic-dangerous-direct-browser-access` default header. Touch any of these three and retention-restricted orgs get 401s again
 - **Deep links**: `mailto:` scheme registered via tauri-plugin-deep-link. Opens compose window with pre-filled recipient
 - **Autostart**: Uses `--hidden` flag to start minimized to tray
