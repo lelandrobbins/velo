@@ -4,17 +4,18 @@ import { getActiveProvider, isAiAvailable } from "@/services/ai/providerManager"
 import { categorizeFeedThread, type FeedCategory } from "@/services/triage/noiseClassifier";
 import { selectFocusWindow, selectFeedItems, threadStateKey, manifestHash } from "./briefWindow";
 import { extractThread } from "./extractor";
-import { composeMemo, type ManifestEntry, type MemoSegment, type FeedMention } from "./composer";
+import { composeMemo, type ManifestEntry, type MemoBlock, type FeedMention } from "./composer";
 
 export const BRIEF_THREAD_ID = "__brief__";
-export const MEMO_TYPE = "brief_memo_v1";
+// v2: memo stored as markdown-subset blocks (v1 rows are ignored and regenerated)
+export const MEMO_TYPE = "brief_memo_v2";
 
 const THREAD_QUERY_LIMIT = 100;
 const SYNC_DEBOUNCE_MS = 2000;
 
 export interface StoredBrief {
   memo: string;
-  segments: MemoSegment[];
+  blocks: MemoBlock[];
   generatedAt: number;
   manifestHash: string;
   empty: boolean;
@@ -69,7 +70,7 @@ export async function generateBrief(
   if (focus.length === 0) {
     const brief: StoredBrief = {
       memo: "Nothing needs you. Enjoy the quiet.",
-      segments: [{ type: "text", text: "Nothing needs you. Enjoy the quiet." }],
+      blocks: [{ type: "paragraph", segments: [{ type: "text", text: "Nothing needs you. Enjoy the quiet." }] }],
       generatedAt: now,
       manifestHash: manifestHash([]),
       empty: true,
@@ -106,7 +107,7 @@ export async function generateBrief(
 
   const brief: StoredBrief = {
     memo: composed.memo,
-    segments: composed.segments,
+    blocks: composed.blocks,
     generatedAt: now,
     manifestHash: hash,
     empty: false,

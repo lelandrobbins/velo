@@ -8,9 +8,14 @@ import type { DbThread } from "@/services/db/threads";
 
 const mockBrief: StoredBrief = {
   memo: "Reply to Alice about the launch.",
-  segments: [
-    { type: "link", text: "Reply to Alice", threadId: "thread-1" },
-    { type: "text", text: " about the launch." },
+  blocks: [
+    {
+      type: "paragraph",
+      segments: [
+        { type: "link", text: "Reply to Alice", threadId: "thread-1" },
+        { type: "text", text: " about the launch." },
+      ],
+    },
   ],
   generatedAt: Date.now(),
   manifestHash: "hash-1",

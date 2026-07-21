@@ -14,10 +14,39 @@ import {
   computeFiledToday,
   type StoredBrief,
 } from "@/services/brief/briefManager";
+import type { MemoSegment } from "@/services/brief/composer";
 import { getThreadById, getThreadLabelIds } from "@/services/db/threads";
 import type { FeedCategory } from "@/services/triage/noiseClassifier";
 
 const FIRST_RUN_SLOW_MS = 10_000;
+
+function renderSegments(
+  segments: MemoSegment[],
+  onLinkClick: (threadId: string) => Promise<void>,
+): React.ReactNode {
+  return segments.map((seg, i) =>
+    seg.type === "link" ? (
+      // Anchor, not button: buttons are atomic inline-blocks that can't
+      // wrap across lines, which breaks the prose flow
+      <a
+        key={i}
+        role="link"
+        tabIndex={0}
+        onClick={() => void onLinkClick(seg.threadId)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void onLinkClick(seg.threadId);
+        }}
+        className="text-accent hover:text-accent-hover underline decoration-accent/40 underline-offset-2 cursor-pointer"
+      >
+        {seg.text}
+      </a>
+    ) : seg.type === "bold" ? (
+      <strong key={i} className="font-semibold">{seg.text}</strong>
+    ) : (
+      <span key={i}>{seg.text}</span>
+    ),
+  );
+}
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -273,28 +302,19 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
         ) : !brief ? (
           <EmailListSkeleton />
         ) : (
-          <p className="text-[15px] leading-7 text-text-primary max-w-prose">
-            {brief.segments.map((seg, i) =>
-              seg.type === "link" ? (
-                // Anchor, not button: buttons are atomic inline-blocks that
-                // can't wrap across lines, which breaks the prose flow
-                <a
-                  key={i}
-                  role="link"
-                  tabIndex={0}
-                  onClick={() => void handleMemoLinkClick(seg.threadId)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void handleMemoLinkClick(seg.threadId);
-                  }}
-                  className="text-accent hover:text-accent-hover underline decoration-accent/40 underline-offset-2 cursor-pointer"
-                >
-                  {seg.text}
-                </a>
+          <div className="text-[15px] leading-7 text-text-primary max-w-prose space-y-3">
+            {brief.blocks.map((block, bi) =>
+              block.type === "list" ? (
+                <ul key={bi} className="list-disc pl-5 space-y-1">
+                  {block.items.map((item, ii) => (
+                    <li key={ii}>{renderSegments(item, handleMemoLinkClick)}</li>
+                  ))}
+                </ul>
               ) : (
-                <span key={i}>{seg.text}</span>
+                <p key={bi}>{renderSegments(block.segments, handleMemoLinkClick)}</p>
               ),
             )}
-          </p>
+          </div>
         )}
       </div>
 

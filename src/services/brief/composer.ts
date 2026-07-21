@@ -15,7 +15,12 @@ export interface FeedMention {
 
 export type MemoSegment =
   | { type: "text"; text: string }
+  | { type: "bold"; text: string }
   | { type: "link"; text: string; threadId: string };
+
+export type MemoBlock =
+  | { type: "paragraph"; segments: MemoSegment[] }
+  | { type: "list"; items: MemoSegment[][] };
 
 export function buildComposeRequest(
   entries: ManifestEntry[],
@@ -37,7 +42,7 @@ export function buildComposeRequest(
   return {
     systemPrompt: [
       "You are a chief of staff writing a brief morning memo about the user's email.",
-      "Style: plain confident prose, at most 180 words, no headings, no bullet lists.",
+      "Style: plain confident and friendly prose, to the point, bullets ok when needed.",
       "Order: items that need the user first, then developments, then at most one",
       "sentence about notable feed items, then at most one 'coming up' sentence",
       "built from the listed dates. If nothing needs the user, open by saying so.",
@@ -59,6 +64,25 @@ export function buildComposeRequest(
 }
 
 const LINK_TOKEN = /\[([^\]]+)\]\(thread:([^)\s]+)\)/g;
+const BOLD_TOKEN = /\*\*([^*]+)\*\*/g;
+
+/** Split a plain-text run into text/bold segments. */
+function splitBold(text: string): MemoSegment[] {
+  const segments: MemoSegment[] = [];
+  let lastIndex = 0;
+  for (const match of text.matchAll(BOLD_TOKEN)) {
+    const start = match.index ?? 0;
+    if (start > lastIndex) {
+      segments.push({ type: "text", text: text.slice(lastIndex, start) });
+    }
+    segments.push({ type: "bold", text: match[1] ?? "" });
+    lastIndex = start + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ type: "text", text: text.slice(lastIndex) });
+  }
+  return segments;
+}
 
 export function parseMemoSegments(
   memo: string,
@@ -73,7 +97,7 @@ export function parseMemoSegments(
     const [full, text, threadId] = match;
     const start = match.index ?? 0;
     if (start > lastIndex) {
-      segments.push({ type: "text", text: memo.slice(lastIndex, start) });
+      segments.push(...splitBold(memo.slice(lastIndex, start)));
     }
     totalLinks++;
     if (threadId && validIds.has(threadId)) {
@@ -85,9 +109,69 @@ export function parseMemoSegments(
     lastIndex = start + full.length;
   }
   if (lastIndex < memo.length) {
-    segments.push({ type: "text", text: memo.slice(lastIndex) });
+    segments.push(...splitBold(memo.slice(lastIndex)));
   }
   return { segments, totalLinks, invalidLinks };
+}
+
+const BULLET_LINE = /^[-*]\s+/;
+const HEADING_LINE = /^#{1,6}\s+/;
+
+/**
+ * Parse the memo into paragraph and list blocks (a constrained markdown
+ * subset: blank-line paragraphs, "-"/"*" bullets, **bold**, thread links).
+ * External markdown links are NOT rendered as links — only validated
+ * [text](thread:ID) tokens become navigable, everything else stays text.
+ */
+export function parseMemoBlocks(
+  memo: string,
+  validIds: Set<string>,
+): { blocks: MemoBlock[]; totalLinks: number; invalidLinks: number } {
+  const blocks: MemoBlock[] = [];
+  let totalLinks = 0;
+  let invalidLinks = 0;
+  let paragraphLines: string[] = [];
+
+  const parseInline = (text: string): MemoSegment[] => {
+    const parsed = parseMemoSegments(text, validIds);
+    totalLinks += parsed.totalLinks;
+    invalidLinks += parsed.invalidLinks;
+    return parsed.segments;
+  };
+
+  const flushParagraph = () => {
+    if (paragraphLines.length === 0) return;
+    const segments = parseInline(paragraphLines.join(" "));
+    if (segments.length > 0) blocks.push({ type: "paragraph", segments });
+    paragraphLines = [];
+  };
+
+  for (const rawLine of memo.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "") {
+      flushParagraph();
+    } else if (BULLET_LINE.test(line)) {
+      flushParagraph();
+      const item = parseInline(line.replace(BULLET_LINE, ""));
+      const last = blocks[blocks.length - 1];
+      if (last?.type === "list") {
+        last.items.push(item);
+      } else {
+        blocks.push({ type: "list", items: [item] });
+      }
+    } else if (HEADING_LINE.test(line)) {
+      flushParagraph();
+      blocks.push({
+        type: "paragraph",
+        segments: [{ type: "bold", text: line.replace(HEADING_LINE, "") }],
+      });
+    } else {
+      paragraphLines.push(line);
+    }
+  }
+  flushParagraph();
+
+  return { blocks, totalLinks, invalidLinks };
 }
 
 export function memoIsAcceptable(totalLinks: number, invalidLinks: number): boolean {
@@ -100,13 +184,13 @@ export async function composeMemo(
   entries: ManifestEntry[],
   feed: FeedMention[],
   dateLabel: string,
-): Promise<{ memo: string; segments: MemoSegment[] } | null> {
+): Promise<{ memo: string; blocks: MemoBlock[] } | null> {
   const request = buildComposeRequest(entries, feed, dateLabel);
   const memo = (await provider.complete(request)).trim();
   if (!memo) return null;
 
   const validIds = new Set(entries.map((e) => e.threadId));
-  const { segments, totalLinks, invalidLinks } = parseMemoSegments(memo, validIds);
+  const { blocks, totalLinks, invalidLinks } = parseMemoBlocks(memo, validIds);
   if (!memoIsAcceptable(totalLinks, invalidLinks)) return null;
-  return { memo, segments };
+  return { memo, blocks };
 }
