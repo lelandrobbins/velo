@@ -23,9 +23,11 @@ describe("claudeProvider", () => {
     clearClaudeProvider();
   });
 
-  it("routes requests through the Tauri HTTP plugin, not the webview fetch", () => {
-    // Browser (CORS) requests are rejected for Anthropic orgs with custom
-    // retention settings — the client must use the Rust-side fetch.
+  it("routes requests through the Tauri HTTP plugin without browser markers", () => {
+    // Browser requests are rejected for Anthropic orgs with custom retention
+    // settings. The client must use the Rust-side fetch AND suppress the
+    // browser opt-in header the SDK adds for dangerouslyAllowBrowser — the
+    // header alone makes the API apply the browser-CORS policy.
     createClaudeProvider("sk-test", "claude-haiku-4-5-20251001");
 
     expect(Anthropic).toHaveBeenCalledWith(
@@ -33,6 +35,9 @@ describe("claudeProvider", () => {
         apiKey: "sk-test",
         dangerouslyAllowBrowser: true,
         fetch: tauriFetch,
+        defaultHeaders: expect.objectContaining({
+          "anthropic-dangerous-direct-browser-access": null,
+        }),
       }),
     );
   });

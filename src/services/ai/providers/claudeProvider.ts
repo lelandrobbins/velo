@@ -3,10 +3,19 @@ import { fetch } from "@tauri-apps/plugin-http";
 import type { AiProviderClient, AiCompletionRequest } from "../types";
 import { createProviderFactory } from "../providerFactory";
 
-// Rust-side fetch: browser (CORS) requests are rejected for Anthropic orgs
-// with custom retention settings, so requests must not carry a webview Origin
+// Requests must not look like browser traffic: Anthropic rejects browser
+// (CORS) requests for orgs with custom retention settings. Rust-side fetch
+// avoids the webview Origin, and the null defaultHeader strips the browser
+// opt-in header the SDK adds for dangerouslyAllowBrowser (which is still
+// required to construct the client inside a webview).
 const factory = createProviderFactory(
-  (apiKey) => new Anthropic({ apiKey, dangerouslyAllowBrowser: true, fetch }),
+  (apiKey) =>
+    new Anthropic({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+      fetch,
+      defaultHeaders: { "anthropic-dangerous-direct-browser-access": null },
+    }),
 );
 
 export function createClaudeProvider(apiKey: string, model: string): AiProviderClient {
