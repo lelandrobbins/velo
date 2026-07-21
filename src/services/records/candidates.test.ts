@@ -72,6 +72,7 @@ describe("getRecordCandidates", () => {
     const [sql, params] = mockSelect.mock.calls[0]!;
     expect(sql).toContain("last_message_at >= $2");
     expect(sql).toContain("'TRASH', 'SPAM', 'DRAFT'");
+    expect(sql).toContain("JOIN messages");
     expect(params).toEqual(["a1", FLOOR]);
   });
 

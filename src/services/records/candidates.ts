@@ -60,8 +60,10 @@ export async function getRecordCandidates(
   const db = await getDb();
   const rows = await db.select<CandidateRow[]>(
     `SELECT t.id AS thread_id, t.subject, t.last_message_at, t.message_count,
-            t.from_address, t.list_unsubscribe
+            m.from_address, m.list_unsubscribe
      FROM threads t
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
      WHERE t.account_id = $1
        AND t.last_message_at >= $2
        AND NOT EXISTS (SELECT 1 FROM thread_labels tl
