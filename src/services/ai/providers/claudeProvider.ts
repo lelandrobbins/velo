@@ -1,9 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fetch } from "@tauri-apps/plugin-http";
 import type { AiProviderClient, AiCompletionRequest } from "../types";
 import { createProviderFactory } from "../providerFactory";
 
+// Rust-side fetch: browser (CORS) requests are rejected for Anthropic orgs
+// with custom retention settings, so requests must not carry a webview Origin
 const factory = createProviderFactory(
-  (apiKey) => new Anthropic({ apiKey, dangerouslyAllowBrowser: true }),
+  (apiKey) => new Anthropic({ apiKey, dangerouslyAllowBrowser: true, fetch }),
 );
 
 export function createClaudeProvider(apiKey: string, model: string): AiProviderClient {
@@ -30,7 +33,8 @@ export function createClaudeProvider(apiKey: string, model: string): AiProviderC
           messages: [{ role: "user", content: "Say hi" }],
         });
         return true;
-      } catch {
+      } catch (err) {
+        console.error("Claude testConnection failed:", err);
         return false;
       }
     },
