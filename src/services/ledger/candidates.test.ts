@@ -55,13 +55,25 @@ describe("getLedgerCandidates", () => {
     expect(result.map((c) => c.threadId)).toEqual(["t1"]);
   });
 
-  it("passes the 30-day cutoff and cap into the query", async () => {
+  it("passes the 30-day cutoff into the query, bounding both the thread scan and the EXISTS check, with no SQL cap", async () => {
     mockSelect.mockResolvedValue([]);
     await getLedgerCandidates("a1", "me@x.com", NOW);
     const [sql, params] = mockSelect.mock.calls[0]!;
-    expect(sql).toContain("LIMIT");
-    expect(params).toContain(NOW - 30 * 24 * 3_600_000);
-    expect(params).toContain(CANDIDATE_CAP);
+    expect(sql).toContain("t.last_message_at >= $3");
+    expect(sql).not.toContain("LIMIT $4");
+    expect(params).toEqual(["a1", "me@x.com", NOW - 30 * 24 * 3_600_000]);
+  });
+
+  it("caps results after the automated/null counterparty filter, not before", async () => {
+    const rows = Array.from({ length: CANDIDATE_CAP + 2 }, (_, i) =>
+      row({ thread_id: `t${i}` }),
+    );
+    // An automated row up front must not consume a slot in the cap.
+    rows[0] = row({ thread_id: "automated", counterparty_address: "noreply@github.com" });
+    mockSelect.mockResolvedValue(rows);
+    const result = await getLedgerCandidates("a1", "me@x.com", NOW);
+    expect(result).toHaveLength(CANDIDATE_CAP);
+    expect(result.some((c) => c.threadId === "automated")).toBe(false);
   });
 
   it("drops the candidate when counterparty_address is null and the fallback To header is automated", async () => {

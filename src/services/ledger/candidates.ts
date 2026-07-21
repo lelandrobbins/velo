@@ -87,15 +87,15 @@ export async function getLedgerCandidates(
          ORDER BY m.date DESC LIMIT 1) AS counterparty_name
      FROM threads t
      WHERE t.account_id = $1
+       AND t.last_message_at >= $3
        AND EXISTS (SELECT 1 FROM messages m
          WHERE m.account_id = t.account_id AND m.thread_id = t.id
            AND LOWER(m.from_address) = $2 AND m.date >= $3)
        AND NOT EXISTS (SELECT 1 FROM thread_labels tl
          WHERE tl.account_id = t.account_id AND tl.thread_id = t.id
            AND tl.label_id IN ('TRASH', 'SPAM', 'DRAFT'))
-     ORDER BY t.last_message_at DESC
-     LIMIT $4`,
-    [accountId, owner, cutoff, CANDIDATE_CAP],
+     ORDER BY t.last_message_at DESC`,
+    [accountId, owner, cutoff],
   );
 
   return rows
@@ -109,6 +109,7 @@ export async function getLedgerCandidates(
         r.counterpartyAddress !== null &&
         !isAutomatedAddress(r.counterpartyAddress),
     )
+    .slice(0, CANDIDATE_CAP)
     .map((r) => ({
       threadId: r.thread_id,
       subject: r.subject,
