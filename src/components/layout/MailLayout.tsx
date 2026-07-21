@@ -3,9 +3,16 @@ import { EmailList } from "./EmailList";
 import { ReadingPane } from "./ReadingPane";
 import { HomePage } from "@/components/home/HomePage";
 import { BriefPage } from "@/components/brief/BriefPage";
+import { LedgerPage } from "@/components/ledger/LedgerPage";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+
+const VIEW_COMPONENTS: Record<string, typeof EmailList> = {
+  brief: BriefPage,
+  home: HomePage,
+  ledger: LedgerPage,
+};
 
 function ResizableEmailLayout() {
   const emailListWidth = useUIStore((s) => s.emailListWidth);
@@ -41,7 +48,7 @@ function ResizableEmailLayout() {
   }, [emailListWidth, setEmailListWidth]);
 
   const activeLabel = useActiveLabel();
-  const ListComponent = activeLabel === "brief" ? BriefPage : activeLabel === "home" ? HomePage : EmailList;
+  const ListComponent = VIEW_COMPONENTS[activeLabel] ?? EmailList;
 
   return (
     <div ref={containerRef} className="flex flex-1 min-w-0 flex-row">
@@ -58,7 +65,7 @@ function ResizableEmailLayout() {
 export function MailLayout() {
   const readingPanePosition = useUIStore((s) => s.readingPanePosition);
   const activeLabel = useActiveLabel();
-  const ListComponent = activeLabel === "brief" ? BriefPage : activeLabel === "home" ? HomePage : EmailList;
+  const ListComponent = VIEW_COMPONENTS[activeLabel] ?? EmailList;
 
   if (readingPanePosition === "right") {
     return (

@@ -17,6 +17,7 @@ export const SHORTCUTS: ShortcutCategory[] = [
     { id: "nav.msgNext", keys: "ArrowDown", desc: "Next message in thread" },
     { id: "nav.msgPrev", keys: "ArrowUp", desc: "Previous message in thread" },
     { id: "nav.goHome", keys: "g then h", desc: "Go to Brief" },
+    { id: "nav.goLedger", keys: "g then l", desc: "Go to Ledger" },
     { id: "nav.goInbox", keys: "g then i", desc: "Go to Inbox" },
     { id: "nav.goStarred", keys: "g then s", desc: "Go to Starred" },
     { id: "nav.goSent", keys: "g then t", desc: "Go to Sent" },
