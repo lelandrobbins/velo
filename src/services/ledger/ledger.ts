@@ -48,6 +48,23 @@ async function getCachedExtraction(
   }
 }
 
+/** Any reply from someone other than the owner after the given time? Used to
+ * resolve pins on threads that fell out of the candidate window. */
+async function hasReplySincePin(
+  accountId: string,
+  threadId: string,
+  since: number,
+  ownerEmail: string,
+): Promise<boolean> {
+  const db = await getDb();
+  const rows = await db.select<{ count: number }[]>(
+    `SELECT COUNT(*) as count FROM messages
+     WHERE account_id = $1 AND thread_id = $2 AND date > $3 AND LOWER(from_address) != $4`,
+    [accountId, threadId, since, ownerEmail],
+  );
+  return (rows[0]?.count ?? 0) > 0;
+}
+
 function parseDue(promises: { what: string; due: string | null }[]): number | null {
   const times = promises
     .map((p) => (p.due ? Date.parse(p.due) : NaN))
@@ -127,7 +144,20 @@ export async function getLedger(
     if (pin.kind !== "waiting") continue;
     if (waitingOn.some((e) => e.threadId === pin.thread_id)) continue;
     const c = candidateById.get(pin.thread_id);
-    if (c && !c.ownerSpokeLast) continue; // reply arrived — pin resolved
+    if (c) {
+      if (!c.ownerSpokeLast) continue; // reply arrived — pin resolved
+    } else {
+      // Thread fell out of the candidate window (e.g. no longer within the
+      // 30-day cutoff) — check for a reply directly instead of leaving the
+      // pin stuck forever.
+      const replied = await hasReplySincePin(
+        accountId,
+        pin.thread_id,
+        pin.created_at * 1000,
+        ownerEmail.toLowerCase(),
+      );
+      if (replied) continue; // reply arrived — pin resolved
+    }
     waitingOn.push({
       threadId: pin.thread_id,
       kind: "waiting",

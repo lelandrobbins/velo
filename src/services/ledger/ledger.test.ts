@@ -137,6 +137,37 @@ describe("getLedger", () => {
     expect(waitingOn).toHaveLength(0);
   });
 
+  it("pin on a thread outside the candidate window resolves when a reply exists", async () => {
+    vi.mocked(getLedgerCandidates).mockResolvedValue([]); // thread fell out of the candidate window
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    vi.mocked(getPinnedOverrides).mockResolvedValue([
+      { id: "o1", account_id: "a1", thread_id: "old-thread", kind: "waiting", action: "pinned", due_at: null, created_at: 100 },
+    ]);
+    mockSelect
+      .mockResolvedValueOnce([{ email: "me@x.com" }]) // owner email lookup
+      .mockResolvedValueOnce([{ count: 1 }]); // reply-check query
+    const { waitingOn } = await getLedger("a1", NOW);
+    expect(waitingOn).toHaveLength(0);
+    expect(mockSelect).toHaveBeenLastCalledWith(
+      expect.stringContaining("FROM messages"),
+      ["a1", "old-thread", 100 * 1000, "me@x.com"],
+    );
+  });
+
+  it("pin on a thread outside the candidate window stays open when no reply exists", async () => {
+    vi.mocked(getLedgerCandidates).mockResolvedValue([]);
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    vi.mocked(getPinnedOverrides).mockResolvedValue([
+      { id: "o1", account_id: "a1", thread_id: "old-thread", kind: "waiting", action: "pinned", due_at: null, created_at: 100 },
+    ]);
+    mockSelect
+      .mockResolvedValueOnce([{ email: "me@x.com" }])
+      .mockResolvedValueOnce([{ count: 0 }]);
+    const { waitingOn } = await getLedger("a1", NOW);
+    expect(waitingOn).toHaveLength(1);
+    expect(waitingOn[0]!.threadId).toBe("old-thread");
+  });
+
   it("sorts oldest first", async () => {
     const c1 = cand({ threadId: "young", ownerLastSentAt: NOW - 1 * DAY, lastMessageAt: NOW - 1 * DAY });
     const c2 = cand({ threadId: "old", ownerLastSentAt: NOW - 9 * DAY, lastMessageAt: NOW - 9 * DAY });
