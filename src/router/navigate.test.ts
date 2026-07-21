@@ -51,6 +51,15 @@ describe("navigate", () => {
       });
     });
 
+    it("should navigate to vault as a system label", () => {
+      navigateToLabel("vault");
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: "/mail/$label",
+        params: { label: "vault" },
+        search: {},
+      });
+    });
+
     it("should navigate to settings", () => {
       navigateToLabel("settings");
       expect(mockNavigate).toHaveBeenCalledWith({

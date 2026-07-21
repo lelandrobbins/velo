@@ -43,6 +43,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     // Navigation
     { id: "go-brief", label: "Go to Brief", shortcut: "g h", category: "Navigation", action: () => { navigateToLabel("brief"); onClose(); } },
     { id: "go-ledger", label: "Go to Ledger", shortcut: "g l", category: "Navigation", action: () => { navigateToLabel("ledger"); onClose(); } },
+    { id: "go-vault", label: "Go to Vault", shortcut: "g v", category: "Navigation", action: () => { navigateToLabel("vault"); onClose(); } },
     { id: "go-home", label: "Go to Home (Focus/Feed)", category: "Navigation", action: () => { navigateToLabel("home"); onClose(); } },
     { id: "go-inbox", label: "Go to Inbox", shortcut: "g i", category: "Navigation", action: () => { navigateToLabel("inbox"); onClose(); } },
     { id: "go-starred", label: "Go to Starred", shortcut: "g s", category: "Navigation", action: () => { navigateToLabel("starred"); onClose(); } },

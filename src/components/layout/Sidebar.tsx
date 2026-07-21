@@ -30,6 +30,7 @@ import {
   PanelLeftOpen,
   Pencil,
   Loader2,
+  Vault,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,6 +43,7 @@ export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = 
   { id: "brief", label: "Brief", icon: Sparkles },
   { id: "home", label: "Home", icon: Home },
   { id: "ledger", label: "Ledger", icon: ListChecks },
+  { id: "vault", label: "Vault", icon: Vault },
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "starred", label: "Starred", icon: Star },
   { id: "snoozed", label: "Snoozed", icon: Clock },
@@ -198,7 +200,7 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
       }
     }
     // Append any new items not present in the saved config (Brief/Home pin to the top)
-    const TOP_IDS = ["brief", "home", "ledger"];
+    const TOP_IDS = ["brief", "home", "ledger", "vault"];
     for (const item of [...ALL_NAV_ITEMS].reverse()) {
       if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) {
         if (TOP_IDS.includes(item.id)) result.unshift(item);

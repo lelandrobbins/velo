@@ -2,7 +2,7 @@ import { router } from "./index";
 
 /** Known system labels that map to /mail/$label */
 const SYSTEM_LABELS = new Set([
-  "brief", "home", "ledger", "inbox", "starred", "snoozed", "sent", "drafts", "trash", "spam", "all",
+  "brief", "home", "ledger", "vault", "inbox", "starred", "snoozed", "sent", "drafts", "trash", "spam", "all",
 ]);
 
 /**
