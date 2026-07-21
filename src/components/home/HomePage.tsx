@@ -59,7 +59,7 @@ async function mapDbThreads(dbThreads: DbThread[]): Promise<Thread[]> {
  * people) and Feed (automated mail, sub-tabbed by kind). Feed tabs support
  * archive-all with an undo toast.
  */
-export function HomePage({ width, listRef }: { width?: number; listRef?: React.Ref<HTMLDivElement> }) {
+export function HomePage({ width, listRef, banner }: { width?: number; listRef?: React.Ref<HTMLDivElement>; banner?: React.ReactNode }) {
   const threads = useThreadStore((s) => s.threads);
   const setThreads = useThreadStore((s) => s.setThreads);
   const isLoading = useThreadStore((s) => s.isLoading);
@@ -227,6 +227,7 @@ export function HomePage({ width, listRef }: { width?: number; listRef?: React.R
       }`}
       style={readingPanePosition === "right" && width ? { width } : undefined}
     >
+      {banner}
       {/* Landing header */}
       <div className="px-5 pt-4 pb-3">
         <h1 className="text-base font-semibold text-text-primary">{headline}</h1>
