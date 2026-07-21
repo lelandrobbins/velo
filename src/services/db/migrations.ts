@@ -775,6 +775,23 @@ const MIGRATIONS = [
     description: "Accept self-signed certificates for IMAP/SMTP",
     sql: `ALTER TABLE accounts ADD COLUMN accept_invalid_certs INTEGER DEFAULT 0;`,
   },
+  {
+    version: 24,
+    description: "Ledger overrides (waiting-on/promise dismissals, done, pins)",
+    sql: `
+      CREATE TABLE IF NOT EXISTS ledger_overrides (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        thread_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('waiting', 'promise')),
+        action TEXT NOT NULL CHECK (action IN ('dismissed', 'done', 'pinned')),
+        due_at INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        UNIQUE(account_id, thread_id, kind)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ledger_overrides_lookup ON ledger_overrides(account_id, action);
+    `,
+  },
 ];
 
 /**
