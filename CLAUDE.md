@@ -48,10 +48,11 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
    - `ai/` — Provider plumbing only; kept for future use but no feature currently consumes it (thread summaries, smart replies, AI compose, auto-categorization, smart labels, Ask Inbox, and task extraction were all removed). `providerManager.ts` manages provider clients (`providers/claudeProvider.ts`, `openaiProvider.ts`, `geminiProvider.ts`, `ollamaProvider.ts`, `copilotProvider.ts`). `providerFactory.ts`, `errors.ts`, and `types.ts` define the shared abstraction. Settings > AI still exposes provider selection, API key entry, and connection testing.
    - `composer/` — `draftAutoSave.ts` auto-saves drafts every 3 seconds (debounced). Watches composer state changes via Zustand subscribe.
    - `search/` — `searchParser.ts` parses Gmail-style operators (`from:`, `to:`, `subject:`, `has:attachment`, `is:unread/read/starred`, `before:`, `after:`, `label:`). `searchQueryBuilder.ts` builds SQL queries from parsed operators.
+   - `triage/` — `noiseClassifier.ts` deterministic signal/feed classification for the Home landing view (List-Unsubscribe header, no-reply sender patterns, calendar-invite subjects/senders; conservative — defaults to signal), plus `categorizeFeedThread` grouping feed items into calendar / fyi (transactional, security, logistics cues) / junk. Foundation for the milestone-2 noise engine.
    - `filters/` — `filterEngine.ts` auto-applies filters to incoming messages during sync. Criteria use AND logic (case-insensitive substring matching). Actions: applyLabel, archive, trash, star, markRead.
    - `snooze/` — Background interval checkers for snooze unsnooze and scheduled sends.
    - `followup/` — `followupManager.ts` checks for follow-up reminders (threads with no reply after user-set delay).
-   - `notifications/` — `notificationManager.ts` provides OS notifications via tauri-plugin-notification. Notifies on everything by default; VIP-only filtering only applies when smart notification mode is on AND VIPs are configured.
+   - `notifications/` — `notificationManager.ts` provides OS notifications via tauri-plugin-notification. Feed-classified mail (automated/calendar, via `triage/noiseClassifier`) never notifies; VIP-only filtering applies when smart notification mode is on AND VIPs are configured (explicit VIPs win over feed suppression).
    - `contacts/` — `gravatar.ts` fetches Gravatar profile images for contacts.
    - `attachments/` — `cacheManager.ts` handles local attachment caching with size limits. `preCacheManager.ts` background pre-caches recent small attachments (<5MB, 7 days) every 15 minutes.
    - `unsubscribe/` — `unsubscribeManager.ts` handles one-click unsubscribe (RFC 8058 List-Unsubscribe-Post and mailto: fallback).
@@ -62,8 +63,9 @@ Tauri v2 desktop app: Rust backend + React 19 frontend communicating via Tauri I
 
 ### Component organization
 
-9 groups, ~65 component files:
+10 groups, ~65 component files:
 - `layout/` — Sidebar, EmailList, MailLayout, ReadingPane, TitleBar
+- `home/` — HomePage (default landing view at `/mail/home`: Focus/Feed tabs via `services/triage/noiseClassifier`; Feed sub-tabbed by Calendar/FYI/Likely junk with per-tab archive-all + undo toast, Shift+E)
 - `email/` — ThreadView, ThreadCard, MessageItem, EmailRenderer, ActionBar, AttachmentList, SnoozeDialog, ContactSidebar, FollowUpDialog, InlineAttachmentPreview, InlineReply, AuthBadge, AuthWarningBanner, PhishingBanner, LinkConfirmDialog, MoveToFolderDialog, RawMessageModal
 - `composer/` — Composer (TipTap v3 rich text editor), AddressInput, EditorToolbar, AttachmentPicker, ScheduleSendDialog, SignatureSelector, TemplatePicker, UndoSendToast, FromSelector
 - `search/` — CommandPalette, SearchBar, ShortcutsHelp
@@ -106,6 +108,7 @@ Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-tog
 | `j` / `k` | Navigate threads down/up |
 | `o` / `Enter` | Open thread |
 | `e` | Archive |
+| `Shift+E` | Archive all in Feed tab (Home view) |
 | `s` | Star/unstar |
 | `p` | Pin/unpin |
 | `m` | Mute/unmute thread |
@@ -124,6 +127,7 @@ Custom window events: `velo-sync-done`, `velo-toggle-command-palette`, `velo-tog
 | `Ctrl+Enter` | Send email (in composer) |
 | `Ctrl+A` | Select all threads |
 | `Ctrl+Shift+A` | Select all threads from current position |
+| `g` then `h` | Go to Home |
 | `g` then `i` | Go to Inbox |
 | `g` then `s` | Go to Starred |
 | `g` then `t` | Go to Sent |
@@ -198,4 +202,4 @@ Key tables (35 total): `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP
 - **Auth display**: SPF/DKIM/DMARC parsed from `Authentication-Results` header. Aggregate verdict: pass/fail/warning/unknown. Stored in `messages.auth_results` column
 - **Mute threads**: Sets `is_muted` flag, auto-archives. Muted threads suppressed from notifications during delta sync
 - **Send-as aliases**: Fetched from Gmail `/settings/sendAs` API on account init (Gmail only). `FromSelector` shown in composer when account has multiple aliases
-- **Notifications**: Notify on everything by default. VIP-only filtering only kicks in when smart notification mode is on AND VIPs are configured (`shouldNotifyForMessage` in `services/notifications/notificationManager.ts`)
+- **Notifications**: Focus items only — feed-classified mail (automated/calendar) is suppressed. VIP-only filtering kicks in when smart notification mode is on AND VIPs are configured, and explicit VIPs notify even if their mail classifies as feed (`shouldNotifyForMessage` in `services/notifications/notificationManager.ts`). Taskbar badge (`badgeManager.ts`) likewise counts only unread Focus threads
