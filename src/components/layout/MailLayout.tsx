@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { EmailList } from "./EmailList";
 import { ReadingPane } from "./ReadingPane";
 import { HomePage } from "@/components/home/HomePage";
+import { BriefPage } from "@/components/brief/BriefPage";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -39,7 +40,8 @@ function ResizableEmailLayout() {
     document.body.style.userSelect = "none";
   }, [emailListWidth, setEmailListWidth]);
 
-  const ListComponent = useActiveLabel() === "home" ? HomePage : EmailList;
+  const activeLabel = useActiveLabel();
+  const ListComponent = activeLabel === "brief" ? BriefPage : activeLabel === "home" ? HomePage : EmailList;
 
   return (
     <div ref={containerRef} className="flex flex-1 min-w-0 flex-row">
@@ -55,7 +57,8 @@ function ResizableEmailLayout() {
 
 export function MailLayout() {
   const readingPanePosition = useUIStore((s) => s.readingPanePosition);
-  const ListComponent = useActiveLabel() === "home" ? HomePage : EmailList;
+  const activeLabel = useActiveLabel();
+  const ListComponent = activeLabel === "brief" ? BriefPage : activeLabel === "home" ? HomePage : EmailList;
 
   if (readingPanePosition === "right") {
     return (
