@@ -126,12 +126,12 @@ describe("providerManager", () => {
       mockGetSetting.mockImplementation(async (key: string) => {
         if (key === "ai_provider") return "claude";
         if (key === "claude_api_key") return "sk-ant-test";
-        if (key === "claude_model") return "claude-sonnet-4-20250514";
+        if (key === "claude_model") return "claude-sonnet-5";
         return null;
       });
 
       await getActiveProvider();
-      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-sonnet-4-20250514");
+      expect(createClaudeProvider).toHaveBeenCalledWith("sk-ant-test", "claude-sonnet-5");
     });
 
     it("invalidates cache when model changes", async () => {

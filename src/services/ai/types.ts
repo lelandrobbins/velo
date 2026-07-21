@@ -27,8 +27,9 @@ export interface ModelOption {
 export const PROVIDER_MODELS: Record<Exclude<AiProvider, "ollama">, ModelOption[]> = {
   claude: [
     { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-    { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
-    { id: "claude-opus-4-20250514", label: "Claude Opus 4" },
+    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+    { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
+    { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
   ],
   openai: [
     { id: "gpt-4o-mini", label: "GPT-4o Mini" },
