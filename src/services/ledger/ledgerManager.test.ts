@@ -85,6 +85,7 @@ describe("checkPinnedDue", () => {
     vi.mocked(getPinnedOverrides).mockResolvedValue([
       { id: "o1", account_id: "a1", thread_id: "gone", kind: "waiting", action: "pinned", due_at: NOW - 1, created_at: 1 },
       { id: "o2", account_id: "a1", thread_id: "future", kind: "waiting", action: "pinned", due_at: NOW + 99999, created_at: 1 },
+      { id: "o3", account_id: "a1", thread_id: "promised", kind: "promise", action: "pinned", due_at: NOW - 1, created_at: 1 },
     ]);
     vi.mocked(getLedger).mockResolvedValue({ waitingOn: [], promises: [] });
     await checkPinnedDue("a1", NOW);

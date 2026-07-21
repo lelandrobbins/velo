@@ -44,7 +44,7 @@ export async function refreshLedgerExtractions(accountId: string): Promise<numbe
 /** Notify on overdue unresolved pins, then clear their due date. */
 export async function checkPinnedDue(accountId: string, now: number): Promise<void> {
   const pins = await getPinnedOverrides(accountId);
-  const overdue = pins.filter((p) => p.due_at !== null && p.due_at <= now);
+  const overdue = pins.filter((p) => p.kind === "waiting" && p.due_at !== null && p.due_at <= now);
   if (overdue.length === 0) return;
 
   const { waitingOn } = await getLedger(accountId, now);
