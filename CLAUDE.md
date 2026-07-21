@@ -199,6 +199,7 @@ Key tables (35 total): `accounts` (with `provider` "gmail_api"|"imap", IMAP/SMTP
 - **Vite build**: Multi-page — `index.html` (main app) + `splashscreen.html`
 - **Filter engine**: AND logic for criteria, merges actions when multiple filters match same message
 - **AI providers**: `services/ai/` plumbing is consumed by the Brief pipeline (`services/brief/`) for per-thread extraction and memo composition. Settings > AI still exposes provider selection, API key storage (SQLite settings table), and connection testing
+- **Claude requests must carry zero browser markers**: Anthropic rejects browser (CORS) requests for orgs with custom retention settings. `claudeProvider` therefore uses the Rust-side fetch from tauri-plugin-http, sends an explicit empty `Origin` (which the plugin's `unsafe-headers` feature — enabled in src-tauri/Cargo.toml — treats as "strip the header"), and nulls the SDK's `anthropic-dangerous-direct-browser-access` default header. Touch any of these three and retention-restricted orgs get 401s again
 - **Deep links**: `mailto:` scheme registered via tauri-plugin-deep-link. Opens compose window with pre-filled recipient
 - **Autostart**: Uses `--hidden` flag to start minimized to tray
 - **Phishing detection**: 10 heuristic rules (IP URLs, homograph, suspicious TLDs, URL shorteners, display/href mismatch, suspicious paths, brand impersonation, dangerous protocols, free email impostor, subdomain spoofing). Sensitivity configurable (low/default/high). Results cached in `link_scan_results`
