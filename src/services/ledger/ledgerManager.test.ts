@@ -11,6 +11,7 @@ vi.mock("./extractor", async (importOriginal) => {
 });
 vi.mock("@/services/db/aiCache", () => ({ getAiCache: vi.fn() }));
 vi.mock("@/services/db/ledgerOverrides", () => ({
+  clearLedgerOverride: vi.fn(),
   getPinnedOverrides: vi.fn(() => Promise.resolve([])),
   setLedgerOverride: vi.fn(),
 }));
@@ -27,7 +28,7 @@ import { extractThreadObligations } from "./extractor";
 import { getAiCache } from "@/services/db/aiCache";
 import { isAiAvailable } from "@/services/ai/providerManager";
 import { getLedger } from "./ledger";
-import { getPinnedOverrides, setLedgerOverride } from "@/services/db/ledgerOverrides";
+import { clearLedgerOverride, getPinnedOverrides, setLedgerOverride } from "@/services/db/ledgerOverrides";
 import { notifyFollowUpDue } from "@/services/notifications/notificationManager";
 import { refreshLedgerExtractions, checkPinnedDue } from "./ledgerManager";
 
@@ -90,5 +91,11 @@ describe("checkPinnedDue", () => {
     vi.mocked(getLedger).mockResolvedValue({ waitingOn: [], promises: [] });
     await checkPinnedDue("a1", NOW);
     expect(vi.mocked(notifyFollowUpDue)).not.toHaveBeenCalled();
+    expect(vi.mocked(clearLedgerOverride)).toHaveBeenCalledWith("a1", "gone", "waiting");
+    expect(vi.mocked(clearLedgerOverride)).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "future",
+      expect.anything(),
+    );
   });
 });

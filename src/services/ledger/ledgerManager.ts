@@ -1,5 +1,5 @@
 import { getAiCache } from "@/services/db/aiCache";
-import { getPinnedOverrides, setLedgerOverride } from "@/services/db/ledgerOverrides";
+import { clearLedgerOverride, getPinnedOverrides, setLedgerOverride } from "@/services/db/ledgerOverrides";
 import { getActiveProvider, isAiAvailable } from "@/services/ai/providerManager";
 import { notifyFollowUpDue } from "@/services/notifications/notificationManager";
 import { threadStateKey } from "@/services/brief/briefWindow";
@@ -50,7 +50,11 @@ export async function checkPinnedDue(accountId: string, now: number): Promise<vo
   const { waitingOn } = await getLedger(accountId, now);
   for (const pin of overdue) {
     const entry = waitingOn.find((e) => e.threadId === pin.thread_id);
-    if (!entry) continue; // resolved — reply arrived
+    if (!entry) {
+      // Reply arrived — the pin resolved; clear it like the old checker did
+      await clearLedgerOverride(accountId, pin.thread_id, "waiting");
+      continue;
+    }
     notifyFollowUpDue(entry.subject ?? "", entry.threadId, accountId);
     await setLedgerOverride(accountId, pin.thread_id, "waiting", "pinned", null);
   }
