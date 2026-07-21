@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hourglass, HandHeart, Pin, Send, Check, X } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import { GenericEmptyIllustration } from "../ui/illustrations";
@@ -33,9 +33,19 @@ export function LedgerPage({ width, listRef }: { width?: number; listRef?: React
   const [promises, setPromises] = useState<LedgerEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // Guards against a stale reload (e.g. in flight when the active account
+  // changes) landing after a newer one already resolved — mirrors BriefPage's
+  // cancelled-flag pattern, but as a ref since reload is shared by several
+  // call sites (dismiss, markDone, sync/update event listeners) rather than
+  // owned by a single effect.
+  const activeAccountIdRef = useRef(activeAccountId);
+  activeAccountIdRef.current = activeAccountId;
+
   const reload = useCallback(async () => {
     if (!activeAccountId) return;
-    const ledger = await getLedger(activeAccountId, Date.now());
+    const requestedAccountId = activeAccountId;
+    const ledger = await getLedger(requestedAccountId, Date.now());
+    if (activeAccountIdRef.current !== requestedAccountId) return;
     setWaitingOn(ledger.waitingOn);
     setPromises(ledger.promises);
     setLoaded(true);
@@ -65,12 +75,16 @@ export function LedgerPage({ width, listRef }: { width?: number; listRef?: React
 
   const openThread = useCallback(async (threadId: string) => {
     if (!activeAccountId) return;
-    const { threadMap, threads, setThreads } = useThreadStore.getState();
-    if (!threadMap.has(threadId)) {
+    const { threadMap, setThreads } = useThreadStore.getState();
+    if (threadMap.has(threadId)) {
+      // Already hydrated — still narrow the store to just this thread so
+      // stray ledger rows from a prior view don't linger alongside it.
+      setThreads([threadMap.get(threadId)!]);
+    } else {
       const dbThread = await getThreadById(activeAccountId, threadId);
       if (!dbThread) return;
       const labelIds = await getThreadLabelIds(activeAccountId, threadId);
-      setThreads([...threads, {
+      setThreads([{
         id: dbThread.id,
         accountId: dbThread.account_id,
         subject: dbThread.subject,
@@ -104,10 +118,22 @@ export function LedgerPage({ width, listRef }: { width?: number; listRef?: React
   }, [activeAccountId, reload]);
 
   // Keyboard row navigation: j/k move focus, Enter opens, n nudge,
-  // d dismiss, e mark done (promises). Global shortcuts no-op here because
-  // the thread store is cleared on mount, so there is no conflict.
+  // d dismiss, e mark done (promises). Registered on window with
+  // { capture: true }: capture-phase listeners on a target run before that
+  // same target's bubble-phase listeners, so this fires — and calls
+  // stopPropagation() — before useKeyboardShortcuts' global bubble-phase
+  // listener ever sees the event. Without that, global `e`/`j`/`k` would
+  // also fire (archiving the URL-selected thread, moving threadStore's
+  // selection) even though the user meant to act on the focused ledger row.
+  // Keys the handler doesn't act on in the current state are left alone so
+  // they still reach the global handler normally.
   const [focusIdx, setFocusIdx] = useState(-1);
-  const allEntries = [...waitingOn, ...promises];
+  const allEntries = useMemo(() => [...waitingOn, ...promises], [waitingOn, promises]);
+
+  // Keep focus in range when entries shrink (dismiss/markDone/reload).
+  useEffect(() => {
+    if (focusIdx >= allEntries.length) setFocusIdx(allEntries.length - 1);
+  }, [focusIdx, allEntries.length]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -117,29 +143,51 @@ export function LedgerPage({ width, listRef }: { width?: number; listRef?: React
       const focused = focusIdx >= 0 ? allEntries[focusIdx] : undefined;
       switch (e.key) {
         case "j":
-          e.preventDefault();
-          setFocusIdx((i) => Math.min(i + 1, allEntries.length - 1));
+          if (allEntries.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            setFocusIdx((i) => Math.min(i + 1, allEntries.length - 1));
+          }
           break;
         case "k":
-          e.preventDefault();
-          setFocusIdx((i) => Math.max(i - 1, 0));
+          if (allEntries.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            setFocusIdx((i) => Math.max(i - 1, 0));
+          }
           break;
         case "Enter":
-          if (focused) { e.preventDefault(); void openThread(focused.threadId); }
+          if (focused) {
+            e.preventDefault();
+            e.stopPropagation();
+            void openThread(focused.threadId);
+          }
           break;
         case "n":
-          if (focused?.kind === "waiting") { e.preventDefault(); void draftNudge(focused); }
+          if (focused?.kind === "waiting") {
+            e.preventDefault();
+            e.stopPropagation();
+            void draftNudge(focused);
+          }
           break;
         case "d":
-          if (focused) { e.preventDefault(); void dismiss(focused); }
+          if (focused) {
+            e.preventDefault();
+            e.stopPropagation();
+            void dismiss(focused);
+          }
           break;
         case "e":
-          if (focused?.kind === "promise") { e.preventDefault(); void markDone(focused); }
+          if (focused?.kind === "promise") {
+            e.preventDefault();
+            e.stopPropagation();
+            void markDone(focused);
+          }
           break;
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
   }, [focusIdx, allEntries, openThread, dismiss, markDone]);
 
   const focusedEntry = focusIdx >= 0 ? allEntries[focusIdx] : undefined;
