@@ -276,13 +276,20 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
           <p className="text-[15px] leading-7 text-text-primary max-w-prose">
             {brief.segments.map((seg, i) =>
               seg.type === "link" ? (
-                <button
+                // Anchor, not button: buttons are atomic inline-blocks that
+                // can't wrap across lines, which breaks the prose flow
+                <a
                   key={i}
+                  role="link"
+                  tabIndex={0}
                   onClick={() => void handleMemoLinkClick(seg.threadId)}
-                  className="text-accent hover:text-accent-hover underline decoration-accent/40 underline-offset-2"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleMemoLinkClick(seg.threadId);
+                  }}
+                  className="text-accent hover:text-accent-hover underline decoration-accent/40 underline-offset-2 cursor-pointer"
                 >
                   {seg.text}
-                </button>
+                </a>
               ) : (
                 <span key={i}>{seg.text}</span>
               ),
