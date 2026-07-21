@@ -792,6 +792,39 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_ledger_overrides_lookup ON ledger_overrides(account_id, action);
     `,
   },
+  {
+    version: 25,
+    description: "Records vault: records table + FTS5 index",
+    sql: `
+      CREATE TABLE IF NOT EXISTS records (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        thread_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('purchase', 'travel', 'statement', 'appointment')),
+        vendor TEXT,
+        title TEXT NOT NULL,
+        record_date INTEGER,
+        amount TEXT,
+        reference_numbers TEXT NOT NULL DEFAULT '[]',
+        details TEXT,
+        attachment_names TEXT NOT NULL DEFAULT '[]',
+        source_message_date INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      );
+      CREATE INDEX IF NOT EXISTS idx_records_thread ON records(account_id, thread_id);
+      CREATE INDEX IF NOT EXISTS idx_records_date ON records(account_id, record_date);
+
+      -- Plain FTS5 (own content, NOT contentless: contentless tables restrict
+      -- row deletes, which the delete-and-rewrite materialization needs).
+      CREATE VIRTUAL TABLE IF NOT EXISTS records_fts USING fts5(
+        record_id UNINDEXED,
+        vendor,
+        title,
+        details,
+        reference_text
+      );
+    `,
+  },
 ];
 
 /**
