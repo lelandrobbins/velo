@@ -30,10 +30,24 @@ interface CandidateRow {
 /** First recipient address from a raw To header ("Name <a@x>, b@y" → "a@x"). */
 export function extractFirstAddress(raw: string | null): string | null {
   if (!raw) return null;
-  const bracket = raw.match(/<([^>]+)>/);
+  let depth = 0;
+  let inQuotes = false;
+  let end = raw.length;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '"') inQuotes = !inQuotes;
+    else if (ch === "<" && !inQuotes) depth++;
+    else if (ch === ">" && !inQuotes) depth = Math.max(0, depth - 1);
+    else if (ch === "," && !inQuotes && depth === 0) {
+      end = i;
+      break;
+    }
+  }
+  const segment = raw.slice(0, end);
+  const bracket = segment.match(/<([^>]+)>/);
   if (bracket?.[1]) return bracket[1].trim() || null;
-  const first = raw.split(",")[0]?.trim();
-  return first || null;
+  const bare = segment.trim();
+  return bare || null;
 }
 
 /**

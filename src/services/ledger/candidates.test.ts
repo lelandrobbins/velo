@@ -101,6 +101,12 @@ describe("extractFirstAddress", () => {
     ).toBe("alice@example.com");
   });
 
+  it("respects first-recipient ordering when the first recipient is bare and a later one is bracketed", () => {
+    expect(
+      extractFirstAddress("alice@example.com, Bob Jones <bob@example.com>"),
+    ).toBe("alice@example.com");
+  });
+
   it("handles a quoted display name containing a comma", () => {
     expect(extractFirstAddress('"Smith, Alice" <a@x.com>')).toBe("a@x.com");
   });
