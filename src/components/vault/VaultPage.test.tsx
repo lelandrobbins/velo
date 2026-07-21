@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { VaultPage } from "./VaultPage";
 import { useAccountStore } from "@/stores/accountStore";
 import type { DbRecord } from "@/services/records/records";
@@ -107,11 +107,17 @@ describe("VaultPage", () => {
     // Switch the active account while the ask is still in flight.
     useAccountStore.setState({ activeAccountId: "acc-2" });
 
-    resolveAsk?.({ status: "answered", answer: "Order F-118272.", sources: [purchase] });
-    await pending;
-    await waitFor(() => {
-      expect(screen.queryByText("Order F-118272.")).not.toBeInTheDocument();
+    // Resolve the deferred ask and deterministically flush the resulting
+    // state update (a bare `await pending` plus a `waitFor` negative
+    // assertion can pass before the .then continuation ever runs, letting a
+    // real leak slip through undetected).
+    await act(async () => {
+      resolveAsk?.({ status: "answered", answer: "Order F-118272.", sources: [purchase] });
+      await pending;
+      await Promise.resolve();
     });
+
+    expect(screen.queryByText("Order F-118272.")).not.toBeInTheDocument();
   });
 
   it("shows the AI setup pointer when no provider is configured", async () => {
