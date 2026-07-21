@@ -41,22 +41,24 @@ export async function refreshLedgerExtractions(accountId: string): Promise<numbe
   return refreshed;
 }
 
-/** Notify on overdue unresolved pins, then clear their due date. */
+/** Clear resolved pins and notify on overdue unresolved ones. */
 export async function checkPinnedDue(accountId: string, now: number): Promise<void> {
   const pins = await getPinnedOverrides(accountId);
-  const overdue = pins.filter((p) => p.kind === "waiting" && p.due_at !== null && p.due_at <= now);
-  if (overdue.length === 0) return;
+  const waiting = pins.filter((p) => p.kind === "waiting");
+  if (waiting.length === 0) return;
 
   const { waitingOn } = await getLedger(accountId, now);
-  for (const pin of overdue) {
+  for (const pin of waiting) {
     const entry = waitingOn.find((e) => e.threadId === pin.thread_id);
     if (!entry) {
-      // Reply arrived — the pin resolved; clear it like the old checker did
+      // Reply arrived — the pin resolved; clear it regardless of due date
       await clearLedgerOverride(accountId, pin.thread_id, "waiting");
       continue;
     }
-    notifyFollowUpDue(entry.subject ?? "", entry.threadId, accountId);
-    await setLedgerOverride(accountId, pin.thread_id, "waiting", "pinned", null);
+    if (pin.due_at !== null && pin.due_at <= now) {
+      notifyFollowUpDue(entry.subject ?? "", entry.threadId, accountId);
+      await setLedgerOverride(accountId, pin.thread_id, "waiting", "pinned", null);
+    }
   }
 }
 
