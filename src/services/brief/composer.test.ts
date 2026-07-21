@@ -62,11 +62,36 @@ describe("buildComposeRequest", () => {
       [entry("t1", "Sarah agreed to the terms.", true)],
       [{ subject: "Weekly digest", fromName: "Substack", category: "junk" }],
       "Sunday, July 20",
+      [],
     );
     expect(req.userContent).toContain("t1");
     expect(req.userContent).toContain("Sarah agreed");
     expect(req.userContent).toContain("Weekly digest");
     expect(req.systemPrompt).toContain("[text](thread:THREAD_ID)");
+  });
+});
+
+describe("obligations in compose input", () => {
+  it("includes obligation lines and validates their thread links", async () => {
+    const req = buildComposeRequest([entry("t1", "s")], [], "Sunday", [
+      { threadId: "ob1", line: "waiting on Alex for 6 days", hashKey: "oblig:waiting:ob1:6:" },
+    ]);
+    expect(req.userContent).toContain("Obligations (id :: fact):");
+    expect(req.userContent).toContain("- id=ob1 :: waiting on Alex for 6 days");
+    expect(req.systemPrompt).toContain("Obligations may be woven in");
+
+    const provider = {
+      complete: vi.fn().mockResolvedValue("[Still waiting on Alex](thread:ob1)."),
+      testConnection: vi.fn(),
+    };
+    const result = await composeMemo(provider, [entry("t1", "s")], [], "Sunday", [
+      { threadId: "ob1", line: "waiting on Alex for 6 days", hashKey: "k" },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.blocks[0]).toMatchObject({
+      type: "paragraph",
+      segments: [expect.objectContaining({ type: "link", threadId: "ob1" }), expect.anything()],
+    });
   });
 });
 
@@ -137,7 +162,7 @@ describe("composeMemo", () => {
       complete: vi.fn().mockResolvedValue("[Sarah agreed](thread:t1). Nothing else."),
       testConnection: vi.fn(),
     };
-    const result = await composeMemo(provider, [entry("t1", "s")], [], "Sunday");
+    const result = await composeMemo(provider, [entry("t1", "s")], [], "Sunday", []);
     expect(result).not.toBeNull();
     expect(result!.blocks[0]).toEqual({
       type: "paragraph",
@@ -153,7 +178,7 @@ describe("composeMemo", () => {
       complete: vi.fn().mockResolvedValue("[a](thread:bad1) and [b](thread:bad2)."),
       testConnection: vi.fn(),
     };
-    const result = await composeMemo(provider, [entry("t1", "s")], [], "Sunday");
+    const result = await composeMemo(provider, [entry("t1", "s")], [], "Sunday", []);
     expect(result).toBeNull();
   });
 });

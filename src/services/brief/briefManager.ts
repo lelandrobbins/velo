@@ -1,6 +1,7 @@
 import { getThreadsForAccount, type DbThread } from "@/services/db/threads";
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { getActiveProvider, isAiAvailable } from "@/services/ai/providerManager";
+import { getObligationLines } from "@/services/ledger/obligationLines";
 import { categorizeFeedThread, type FeedCategory } from "@/services/triage/noiseClassifier";
 import { selectFocusWindow, selectFeedItems, threadStateKey, manifestHash } from "./briefWindow";
 import { extractThread } from "./extractor";
@@ -65,9 +66,10 @@ export async function generateBrief(
   const rows = await getThreadsForAccount(accountId, "INBOX", THREAD_QUERY_LIMIT, 0);
   const focus = selectFocusWindow(rows, now);
   const feed = selectFeedItems(rows, now);
+  const obligations = await getObligationLines(accountId, now);
 
   // Deterministic empty brief — no model call
-  if (focus.length === 0) {
+  if (focus.length === 0 && obligations.length === 0) {
     const brief: StoredBrief = {
       memo: "Nothing needs you. Enjoy the quiet.",
       blocks: [{ type: "paragraph", segments: [{ type: "text", text: "Nothing needs you. Enjoy the quiet." }] }],
@@ -79,9 +81,10 @@ export async function generateBrief(
     return brief;
   }
 
-  const hash = manifestHash(
-    focus.map((t) => ({ threadId: t.id, stateKey: threadStateKey(t) })),
-  );
+  const hash = manifestHash([
+    ...focus.map((t) => ({ threadId: t.id, stateKey: threadStateKey(t) })),
+    ...obligations.map((o) => ({ threadId: o.threadId, stateKey: o.hashKey })),
+  ]);
 
   if (!opts?.force) {
     const cached = await getCachedBrief(accountId);
@@ -95,13 +98,14 @@ export async function generateBrief(
     const extraction = await extractThread(provider, accountId, thread);
     if (extraction) entries.push({ threadId: thread.id, extraction });
   }
-  if (entries.length === 0) return null;
+  if (entries.length === 0 && obligations.length === 0) return null;
 
   const composed = await composeMemo(
     provider,
     entries,
     feed.map(rowToFeedMention),
     dateLabel(now),
+    obligations,
   );
   if (!composed) return null;
 

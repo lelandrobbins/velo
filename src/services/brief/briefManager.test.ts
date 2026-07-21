@@ -15,10 +15,14 @@ vi.mock("@/services/ai/providerManager", () => ({
   isAiAvailable: vi.fn(),
   getActiveProvider: vi.fn(),
 }));
+vi.mock("@/services/ledger/obligationLines", () => ({
+  getObligationLines: vi.fn(() => Promise.resolve([])),
+}));
 
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { getThreadsForAccount } from "@/services/db/threads";
 import { isAiAvailable, getActiveProvider } from "@/services/ai/providerManager";
+import { getObligationLines } from "@/services/ledger/obligationLines";
 import { generateBrief, getCachedBrief, computeFiledToday, BRIEF_THREAD_ID, MEMO_TYPE } from "./briefManager";
 
 const NOW_ISH = Date.now();
@@ -62,6 +66,25 @@ describe("generateBrief", () => {
     expect(vi.mocked(setAiCache)).toHaveBeenCalledWith(
       "a1", BRIEF_THREAD_ID, MEMO_TYPE, expect.any(String),
     );
+  });
+
+  it("proceeds to compose when focus is empty but obligations exist", async () => {
+    vi.mocked(isAiAvailable).mockResolvedValue(true);
+    vi.mocked(getThreadsForAccount).mockResolvedValue([
+      row({ id: "f1", list_unsubscribe: "<u>" }), // feed only
+    ]);
+    vi.mocked(getObligationLines).mockResolvedValue([
+      { threadId: "ob1", line: "waiting on Alex for 6 days", hashKey: "oblig:waiting:ob1:6:" },
+    ]);
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    vi.mocked(getActiveProvider).mockResolvedValue({
+      complete: vi.fn().mockResolvedValue("[Waiting on Alex](thread:ob1)."),
+      testConnection: vi.fn(),
+    });
+    const brief = await generateBrief("a1");
+    expect(brief).not.toBeNull();
+    expect(brief!.empty).toBe(false);
+    expect(vi.mocked(getActiveProvider)).toHaveBeenCalled();
   });
 
   it("skips regeneration when manifest hash matches cached brief (not forced)", async () => {
