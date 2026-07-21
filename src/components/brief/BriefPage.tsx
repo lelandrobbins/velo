@@ -37,16 +37,17 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
   const [filed, setFiled] = useState<Record<FeedCategory, number>>({ calendar: 0, fyi: 0, junk: 0 });
   const [generating, setGenerating] = useState(false);
   const [slowFirstRun, setSlowFirstRun] = useState(false);
-  const loadedOnceRef = useRef(false);
+  const attemptedAccountRef = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (!activeAccountId) return;
+    if (!activeAccountId) return null;
     const [cached, counts] = await Promise.all([
       getCachedBrief(activeAccountId),
       computeFiledToday(activeAccountId),
     ]);
     setBrief(cached);
     setFiled(counts);
+    return cached;
   }, [activeAccountId]);
 
   const forceRegenerate = useCallback(async () => {
@@ -65,16 +66,16 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
   // Initial load: AI availability, cached memo, first generation if none
   useEffect(() => {
     let cancelled = false;
+    setSlowFirstRun(false);
     (async () => {
       const ready = await isAiAvailable();
       if (cancelled) return;
       setAiReady(ready);
       if (!ready || !activeAccountId) return;
-      await reload();
+      const cached = await reload();
       if (cancelled) return;
-      const cached = await getCachedBrief(activeAccountId);
-      if (!cached && !loadedOnceRef.current) {
-        loadedOnceRef.current = true;
+      if (!cached && attemptedAccountRef.current !== activeAccountId) {
+        attemptedAccountRef.current = activeAccountId;
         const slowTimer = setTimeout(() => setSlowFirstRun(true), FIRST_RUN_SLOW_MS);
         setGenerating(true);
         try {
