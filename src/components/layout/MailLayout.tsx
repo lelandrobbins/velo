@@ -1,7 +1,10 @@
 import { useCallback, useRef } from "react";
 import { EmailList } from "./EmailList";
 import { ReadingPane } from "./ReadingPane";
+import { HomePage } from "@/components/home/HomePage";
+import { BriefPage } from "@/components/brief/BriefPage";
 import { useUIStore } from "@/stores/uiStore";
+import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 function ResizableEmailLayout() {
@@ -37,9 +40,12 @@ function ResizableEmailLayout() {
     document.body.style.userSelect = "none";
   }, [emailListWidth, setEmailListWidth]);
 
+  const activeLabel = useActiveLabel();
+  const ListComponent = activeLabel === "brief" ? BriefPage : activeLabel === "home" ? HomePage : EmailList;
+
   return (
     <div ref={containerRef} className="flex flex-1 min-w-0 flex-row">
-      <EmailList width={emailListWidth} listRef={listRef} />
+      <ListComponent width={emailListWidth} listRef={listRef} />
       <div
         onMouseDown={handleMouseDown}
         className="w-1 cursor-col-resize bg-border-primary hover:bg-accent/50 active:bg-accent transition-colors shrink-0"
@@ -51,6 +57,8 @@ function ResizableEmailLayout() {
 
 export function MailLayout() {
   const readingPanePosition = useUIStore((s) => s.readingPanePosition);
+  const activeLabel = useActiveLabel();
+  const ListComponent = activeLabel === "brief" ? BriefPage : activeLabel === "home" ? HomePage : EmailList;
 
   if (readingPanePosition === "right") {
     return (
@@ -63,7 +71,7 @@ export function MailLayout() {
   return (
     <div className={`flex flex-1 min-w-0 ${readingPanePosition === "bottom" ? "flex-col" : "flex-row"}`}>
       <ErrorBoundary name="EmailList">
-        <EmailList />
+        <ListComponent />
       </ErrorBoundary>
       {readingPanePosition !== "hidden" && (
         <ErrorBoundary name="ReadingPane">

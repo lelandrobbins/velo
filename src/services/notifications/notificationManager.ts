@@ -10,6 +10,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useComposerStore } from "../../stores/composerStore";
 import { navigateToLabel } from "../../router/navigate";
 import { normalizeEmail } from "@/utils/emailUtils";
+import { classifyThread } from "../triage/noiseClassifier";
 
 let initialized = false;
 let notificationsEnabled = true;
@@ -149,15 +150,31 @@ export function queueNewEmailNotification(
 /**
  * Determine if a new email should trigger a notification based on smart notification settings.
  * Pure function — no I/O, all config is passed in from the sync cycle.
+ *
+ * Feed-classified mail (automated, calendar) never notifies — only Focus
+ * items do. Explicitly configured VIP senders win over feed suppression.
  */
 export function shouldNotifyForMessage(
   smartEnabled: boolean,
   vipSenders: Set<string>,
   fromAddress?: string,
+  triage?: { subject: string | null; listUnsubscribe: string | null },
 ): boolean {
-  if (!smartEnabled) return true; // Smart notifications off → notify everything
-  if (vipSenders.size === 0) return true; // No VIPs configured → nothing to filter by, notify everything
-  return !!fromAddress && vipSenders.has(normalizeEmail(fromAddress)); // VIPs configured → only they notify
+  if (smartEnabled && vipSenders.size > 0) {
+    // VIPs configured → only they notify (even if their mail looks automated)
+    return !!fromAddress && vipSenders.has(normalizeEmail(fromAddress));
+  }
+  if (
+    triage &&
+    classifyThread({
+      fromAddress: fromAddress ?? null,
+      subject: triage.subject,
+      listUnsubscribe: triage.listUnsubscribe,
+    }) === "feed"
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**

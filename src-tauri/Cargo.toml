@@ -30,7 +30,9 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-deep-link = "2"
-tauri-plugin-http = "2"
+# unsafe-headers: lets JS pass an empty Origin so the plugin strips the
+# header entirely (Anthropic rejects browser-origin requests for some orgs)
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-os = "2"

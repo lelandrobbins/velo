@@ -15,6 +15,7 @@ export interface Thread {
   labelIds: string[];
   fromName: string | null;
   fromAddress: string | null;
+  listUnsubscribe: string | null;
 }
 
 interface ThreadState {

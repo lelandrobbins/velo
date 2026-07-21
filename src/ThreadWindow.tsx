@@ -95,6 +95,7 @@ export default function ThreadWindow() {
           labelIds,
           fromName: dbThread.from_name,
           fromAddress: dbThread.from_address,
+          listUnsubscribe: dbThread.list_unsubscribe,
         });
       } catch (err) {
         console.error("Failed to initialize thread window:", err);

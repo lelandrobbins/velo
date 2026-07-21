@@ -17,6 +17,7 @@ export interface DbThread {
   is_muted: number;
   from_name: string | null;
   from_address: string | null;
+  list_unsubscribe: string | null;
 }
 
 export async function getThreadsForAccount(
@@ -28,7 +29,7 @@ export async function getThreadsForAccount(
   const db = await getDb();
   if (labelId) {
     return db.select<DbThread[]>(
-      `SELECT t.*, m.from_name, m.from_address FROM threads t
+      `SELECT t.*, m.from_name, m.from_address, m.list_unsubscribe FROM threads t
        INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
        LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
          AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
@@ -40,7 +41,7 @@ export async function getThreadsForAccount(
     );
   }
   return db.select<DbThread[]>(
-    `SELECT t.*, m.from_name, m.from_address FROM threads t
+    `SELECT t.*, m.from_name, m.from_address, m.list_unsubscribe FROM threads t
      LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
        AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
      WHERE t.account_id = $1
@@ -121,7 +122,7 @@ export async function getThreadById(
 ): Promise<DbThread | undefined> {
   const db = await getDb();
   const rows = await db.select<DbThread[]>(
-    `SELECT t.*, m.from_name, m.from_address FROM threads t
+    `SELECT t.*, m.from_name, m.from_address, m.list_unsubscribe FROM threads t
      LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
        AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
      WHERE t.account_id = $1 AND t.id = $2
@@ -140,14 +141,29 @@ export async function getThreadCountForAccount(accountId: string): Promise<numbe
   return rows[0]?.count ?? 0;
 }
 
-export async function getUnreadInboxCount(): Promise<number> {
+export interface UnreadInboxTriageRow {
+  is_pinned: number;
+  is_starred: number;
+  subject: string | null;
+  from_address: string | null;
+  list_unsubscribe: string | null;
+}
+
+/**
+ * Unread inbox threads across all accounts with the fields needed for
+ * signal/feed triage (used by the badge count).
+ */
+export async function getUnreadInboxTriageRows(): Promise<UnreadInboxTriageRow[]> {
   const db = await getDb();
-  const rows = await db.select<{ count: number }[]>(
-    `SELECT COUNT(*) as count FROM threads t
+  return db.select<UnreadInboxTriageRow[]>(
+    `SELECT t.is_pinned, t.is_starred, t.subject, m.from_address, m.list_unsubscribe
+     FROM threads t
      INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
-     WHERE tl.label_id = 'INBOX' AND t.is_read = 0`,
+     LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
+       AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
+     WHERE tl.label_id = 'INBOX' AND t.is_read = 0
+     GROUP BY t.account_id, t.id`,
   );
-  return rows[0]?.count ?? 0;
 }
 
 export async function deleteThread(
