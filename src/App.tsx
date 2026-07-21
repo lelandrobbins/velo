@@ -28,10 +28,6 @@ import {
   startScheduledSendChecker,
   stopScheduledSendChecker,
 } from "./services/snooze/scheduledSendManager";
-import {
-  startFollowUpChecker,
-  stopFollowUpChecker,
-} from "./services/followup/followupManager";
 import { initNotifications } from "./services/notifications/notificationManager";
 import {
   initGlobalShortcut,
@@ -308,10 +304,9 @@ export default function App() {
         startBriefManager(() => useAccountStore.getState().activeAccountId);
         startLedgerManager(() => useAccountStore.getState().activeAccountId);
 
-        // Start snooze, scheduled send, follow-up, and queue checkers
+        // Start snooze, scheduled send, and queue checkers
         startSnoozeChecker();
         startScheduledSendChecker();
-        startFollowUpChecker();
         startQueueProcessor();
         startPreCacheManager();
 
@@ -342,7 +337,6 @@ export default function App() {
       stopBackgroundSync();
       stopSnoozeChecker();
       stopScheduledSendChecker();
-      stopFollowUpChecker();
       stopQueueProcessor();
       stopPreCacheManager();
       stopBriefManager();
