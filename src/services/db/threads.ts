@@ -161,7 +161,8 @@ export async function getUnreadInboxTriageRows(): Promise<UnreadInboxTriageRow[]
      INNER JOIN thread_labels tl ON tl.account_id = t.account_id AND tl.thread_id = t.id
      LEFT JOIN messages m ON m.account_id = t.account_id AND m.thread_id = t.id
        AND m.date = (SELECT MAX(m2.date) FROM messages m2 WHERE m2.account_id = t.account_id AND m2.thread_id = t.id)
-     WHERE tl.label_id = 'INBOX' AND t.is_read = 0`,
+     WHERE tl.label_id = 'INBOX' AND t.is_read = 0
+     GROUP BY t.account_id, t.id`,
   );
 }
 
