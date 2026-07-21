@@ -199,15 +199,32 @@ export async function extractThreadRecords(
     if (!validDates.has(r.sourceMessageDate)) r.sourceMessageDate = candidate.lastMessageAt;
   }
 
+  // Re-read the cache immediately before writing: a concurrent "Not a record"
+  // click may have appended a fingerprint while the provider call was in
+  // flight. Union it in so that write never resurrects an overturned record.
+  let mergedSuppressed = priorSuppressed;
+  const latestRaw = await getAiCache(accountId, candidate.threadId, RECORDS_EXTRACT_TYPE);
+  if (latestRaw) {
+    try {
+      const latest = JSON.parse(latestRaw) as RecordsCacheEntry;
+      if (Array.isArray(latest.suppressed)) {
+        const latestSuppressed = latest.suppressed.filter((s): s is string => typeof s === "string");
+        mergedSuppressed = Array.from(new Set([...priorSuppressed, ...latestSuppressed]));
+      }
+    } catch {
+      // unparseable — fall back to the pre-provider-call suppressed list
+    }
+  }
+
   await setAiCache(
     accountId,
     candidate.threadId,
     RECORDS_EXTRACT_TYPE,
-    JSON.stringify({ stateKey, records, suppressed: priorSuppressed } satisfies RecordsCacheEntry),
+    JSON.stringify({ stateKey, records, suppressed: mergedSuppressed } satisfies RecordsCacheEntry),
   );
 
   const kept = records.filter(
-    (r) => !priorSuppressed.includes(recordFingerprint(r.kind, r.sourceMessageDate)),
+    (r) => !mergedSuppressed.includes(recordFingerprint(r.kind, r.sourceMessageDate)),
   );
   await replaceThreadRecords(
     accountId,
@@ -225,7 +242,7 @@ export async function extractThreadRecords(
     })),
   );
 
-  return { records, suppressed: priorSuppressed };
+  return { records, suppressed: mergedSuppressed };
 }
 
 /**

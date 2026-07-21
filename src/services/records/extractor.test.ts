@@ -183,6 +183,30 @@ describe("extractThreadRecords", () => {
     );
   });
 
+  it("merges a suppression written while the provider call was in flight", async () => {
+    // First read (pre-provider-call) sees no suppression; second read
+    // (immediately before the cache write) sees a fresh "Not a record" click.
+    vi.mocked(getAiCache)
+      .mockResolvedValueOnce(
+        JSON.stringify({ stateKey: "old:0", records: [], suppressed: [] }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({ stateKey: "old:0", records: [], suppressed: ["purchase:5000"] }),
+      );
+    vi.mocked(getMessagesForThread).mockResolvedValue([msg({})]);
+    const provider = { complete: vi.fn(() => Promise.resolve(goodJson)) };
+    const result = await extractThreadRecords(provider, "a1", candidate);
+
+    // Cache write includes the unioned fingerprint, not just the stale prior list
+    const cached = JSON.parse(vi.mocked(setAiCache).mock.calls[0]![3] as string);
+    expect(cached.suppressed).toEqual(["purchase:5000"]);
+    expect(result!.suppressed).toEqual(["purchase:5000"]);
+
+    // The newly suppressed record is excluded from materialization
+    const [, , written] = vi.mocked(replaceThreadRecords).mock.calls[0]!;
+    expect(written).toEqual([]);
+  });
+
   it("includes attachment filenames in the extraction request", async () => {
     vi.mocked(getAiCache).mockResolvedValue(null);
     vi.mocked(getMessagesForThread).mockResolvedValue([msg({})]);
