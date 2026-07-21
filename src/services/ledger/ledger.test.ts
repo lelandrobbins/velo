@@ -126,6 +126,16 @@ describe("getLedger", () => {
     expect(waitingOn[0]!.dueAt).toBe(NOW + DAY);
   });
 
+  it("pinned override resolves when the counterparty has replied", async () => {
+    vi.mocked(getLedgerCandidates).mockResolvedValue([cand({ ownerSpokeLast: false })]);
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    vi.mocked(getPinnedOverrides).mockResolvedValue([
+      { id: "o1", account_id: "a1", thread_id: "t1", kind: "waiting", action: "pinned", due_at: NOW + DAY, created_at: 1 },
+    ]);
+    const { waitingOn } = await getLedger("a1", NOW);
+    expect(waitingOn).toHaveLength(0);
+  });
+
   it("sorts oldest first", async () => {
     const c1 = cand({ threadId: "young", ownerLastSentAt: NOW - 1 * DAY, lastMessageAt: NOW - 1 * DAY });
     const c2 = cand({ threadId: "old", ownerLastSentAt: NOW - 9 * DAY, lastMessageAt: NOW - 9 * DAY });

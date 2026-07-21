@@ -124,6 +124,7 @@ export async function getLedger(
     if (pin.kind !== "waiting") continue;
     if (waitingOn.some((e) => e.threadId === pin.thread_id)) continue;
     const c = candidateById.get(pin.thread_id);
+    if (c && !c.ownerSpokeLast) continue; // reply arrived — pin resolved
     waitingOn.push({
       threadId: pin.thread_id,
       kind: "waiting",
