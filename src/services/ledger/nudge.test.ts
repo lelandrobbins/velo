@@ -13,7 +13,7 @@ import { draftNudge } from "./nudge";
 
 const entry = {
   threadId: "t1", kind: "waiting" as const, subject: "Venue",
-  counterparty: "Alice Chen", detail: "asked to confirm",
+  counterparty: "Alice Chen", counterpartyAddress: "alice@example.com", detail: "asked to confirm",
   ageDays: 6, sinceAt: 1, dueAt: null, pinned: false,
 };
 
@@ -26,10 +26,19 @@ describe("draftNudge", () => {
     expect(mockOpenComposer).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: "reply",
+        to: ["alice@example.com"],
         threadId: "t1",
         subject: "Re: Venue",
         bodyHtml: expect.stringContaining("circling back"),
       }),
+    );
+  });
+
+  it("opens with no recipient when the entry has no counterparty address", async () => {
+    mockComplete.mockResolvedValue("Hi — circling back on the venue.");
+    await draftNudge({ ...entry, counterpartyAddress: null });
+    expect(mockOpenComposer).toHaveBeenCalledWith(
+      expect.objectContaining({ to: [] }),
     );
   });
 

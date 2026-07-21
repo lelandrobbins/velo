@@ -63,6 +63,7 @@ describe("getLedger", () => {
     expect(waitingOn).toHaveLength(1);
     expect(waitingOn[0]).toMatchObject({
       threadId: "t1", kind: "waiting", counterparty: "Alice Chen",
+      counterpartyAddress: "alice@example.com",
       detail: "asked to confirm", ageDays: 6, pinned: false,
     });
   });

@@ -5,7 +5,7 @@ import { useAccountStore } from "@/stores/accountStore";
 
 const waitingEntry = {
   threadId: "t1", kind: "waiting" as const, subject: "Venue",
-  counterparty: "Alice Chen", detail: "confirm venue", ageDays: 6,
+  counterparty: "Alice Chen", counterpartyAddress: "alice@example.com", detail: "confirm venue", ageDays: 6,
   sinceAt: 1, dueAt: null, pinned: false,
 };
 

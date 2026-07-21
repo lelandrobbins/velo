@@ -24,7 +24,7 @@ export async function draftNudge(entry: LedgerEntry): Promise<void> {
 
   useComposerStore.getState().openComposer({
     mode: "reply",
-    to: [],
+    to: entry.counterpartyAddress ? [entry.counterpartyAddress] : [],
     subject: entry.subject ? `Re: ${entry.subject}` : "",
     bodyHtml: body,
     threadId: entry.threadId,

@@ -12,6 +12,7 @@ export interface LedgerEntry {
   kind: "waiting" | "promise";
   subject: string | null;
   counterparty: string | null;
+  counterpartyAddress: string | null;
   detail: string | null;
   ageDays: number;
   sinceAt: number;
@@ -91,6 +92,7 @@ export async function getLedger(
         kind: "waiting",
         subject: c.subject,
         counterparty,
+        counterpartyAddress: c.counterpartyAddress,
         detail: extraction.why,
         ageDays: Math.floor((now - c.ownerLastSentAt) / DAY_MS),
         sinceAt: c.ownerLastSentAt,
@@ -110,6 +112,7 @@ export async function getLedger(
         kind: "promise",
         subject: c.subject,
         counterparty,
+        counterpartyAddress: c.counterpartyAddress,
         detail: extraction.promises.map((p) => p.what).join("; "),
         ageDays: Math.floor((now - c.ownerLastSentAt) / DAY_MS),
         sinceAt: c.ownerLastSentAt,
@@ -130,6 +133,7 @@ export async function getLedger(
       kind: "waiting",
       subject: c?.subject ?? null,
       counterparty: c?.counterpartyName ?? c?.counterpartyAddress ?? null,
+      counterpartyAddress: c?.counterpartyAddress ?? null,
       detail: null,
       ageDays: Math.floor((now - (c?.ownerLastSentAt ?? pin.created_at * 1000)) / DAY_MS),
       sinceAt: c?.ownerLastSentAt ?? pin.created_at * 1000,
