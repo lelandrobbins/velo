@@ -4,16 +4,24 @@ import type { AiProviderClient, AiCompletionRequest } from "../types";
 import { createProviderFactory } from "../providerFactory";
 
 // Requests must not look like browser traffic: Anthropic rejects browser
-// (CORS) requests for orgs with custom retention settings. Rust-side fetch
-// avoids the webview Origin, and the null defaultHeader strips the browser
-// opt-in header the SDK adds for dangerouslyAllowBrowser (which is still
-// required to construct the client inside a webview).
+// (CORS) requests for orgs with custom retention settings. Three parts:
+// Rust-side fetch (no webview network stack), an empty Origin so the plugin
+// strips the header it would otherwise force-append (requires the crate's
+// unsafe-headers feature, see src-tauri/Cargo.toml), and a null defaultHeader
+// removing the browser opt-in header the SDK adds for dangerouslyAllowBrowser
+// (which is still required to construct the client inside a webview).
+const fetchWithoutOrigin: typeof globalThis.fetch = (input, init) => {
+  const headers = new Headers(init?.headers);
+  headers.set("Origin", "");
+  return fetch(input, { ...init, headers });
+};
+
 const factory = createProviderFactory(
   (apiKey) =>
     new Anthropic({
       apiKey,
       dangerouslyAllowBrowser: true,
-      fetch,
+      fetch: fetchWithoutOrigin,
       defaultHeaders: { "anthropic-dangerous-direct-browser-access": null },
     }),
 );

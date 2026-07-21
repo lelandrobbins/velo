@@ -34,12 +34,33 @@ describe("claudeProvider", () => {
       expect.objectContaining({
         apiKey: "sk-test",
         dangerouslyAllowBrowser: true,
-        fetch: tauriFetch,
+        fetch: expect.any(Function),
         defaultHeaders: expect.objectContaining({
           "anthropic-dangerous-direct-browser-access": null,
         }),
       }),
     );
+  });
+
+  it("sends an empty Origin so the Rust side strips the header entirely", async () => {
+    // tauri-plugin-http force-appends the webview origin unless the caller
+    // passes Origin: "" (with the unsafe-headers feature enabled), which
+    // makes the plugin remove the header before sending.
+    createClaudeProvider("sk-test", "claude-haiku-4-5-20251001");
+
+    const ctorArgs = vi.mocked(Anthropic).mock.calls[0]![0] as { fetch: typeof globalThis.fetch };
+    vi.mocked(tauriFetch).mockResolvedValueOnce(new Response("{}"));
+
+    await ctorArgs.fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": "sk-test" },
+    });
+
+    expect(tauriFetch).toHaveBeenCalledTimes(1);
+    const [, init] = vi.mocked(tauriFetch).mock.calls[0]!;
+    const headers = new Headers(init?.headers);
+    expect(headers.get("Origin")).toBe("");
+    expect(headers.get("x-api-key")).toBe("sk-test");
   });
 
   it("testConnection returns true on success and false on API error", async () => {
