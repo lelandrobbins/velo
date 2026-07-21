@@ -76,7 +76,7 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
       if (cancelled) return;
       if (!cached && attemptedAccountRef.current !== activeAccountId) {
         attemptedAccountRef.current = activeAccountId;
-        const slowTimer = setTimeout(() => setSlowFirstRun(true), FIRST_RUN_SLOW_MS);
+        const slowTimer = setTimeout(() => { if (!cancelled) setSlowFirstRun(true); }, FIRST_RUN_SLOW_MS);
         setGenerating(true);
         try {
           const fresh = await generateBrief(activeAccountId);
