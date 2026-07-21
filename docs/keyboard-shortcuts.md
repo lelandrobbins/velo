@@ -10,6 +10,7 @@ Velo is designed to be used entirely from the keyboard. All shortcuts are custom
 | `o` or `Enter` | Open thread |
 | `Escape` | Close composer / clear selection / deselect |
 | `g` then `h` | Go to Brief |
+| `g` then `l` | Go to Ledger |
 | `Shift+E` | Archive all in Feed tab (Home view) |
 | `g` then `i` | Go to Inbox |
 | `g` then `s` | Go to Starred |
