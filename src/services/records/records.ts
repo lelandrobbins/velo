@@ -1,4 +1,4 @@
-import { getDb, withTransaction } from "@/services/db/connection";
+import { getDb } from "@/services/db/connection";
 
 export type RecordKind = "purchase" | "travel" | "statement" | "appointment";
 export const RECORD_KINDS: RecordKind[] = ["purchase", "travel", "statement", "appointment"];
@@ -42,62 +42,68 @@ export interface DbRecord {
  * Replace a thread's records and keep records_fts in sync. All record
  * writes flow through here (single consumer), which is why records_fts
  * needs no triggers.
+ *
+ * Deliberately NOT wrapped in a JS-side transaction: tauri-plugin-sql runs
+ * every execute on an arbitrary sqlx pool connection, so BEGIN/COMMIT issued
+ * as separate statements can land on different connections and break under
+ * concurrent load (sync + AI managers). Statements are ordered so a
+ * mid-sequence failure is repaired by the caller's retry: deletes first,
+ * and extractor callers only mark a thread done (cache write) after this
+ * function succeeds.
  */
 export async function replaceThreadRecords(
   accountId: string,
   threadId: string,
   records: RecordFields[],
 ): Promise<void> {
-  await withTransaction(async (db) => {
+  const db = await getDb();
+  await db.execute(
+    `DELETE FROM records_fts WHERE record_id IN
+       (SELECT id FROM records WHERE account_id = $1 AND thread_id = $2)`,
+    [accountId, threadId],
+  );
+  await db.execute(
+    "DELETE FROM records WHERE account_id = $1 AND thread_id = $2",
+    [accountId, threadId],
+  );
+  for (const r of records) {
+    const id = crypto.randomUUID();
     await db.execute(
-      `DELETE FROM records_fts WHERE record_id IN
-         (SELECT id FROM records WHERE account_id = $1 AND thread_id = $2)`,
-      [accountId, threadId],
+      `INSERT INTO records (id, account_id, thread_id, kind, vendor, title,
+         record_date, amount, reference_numbers, details, attachment_names,
+         source_message_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        id,
+        accountId,
+        threadId,
+        r.kind,
+        r.vendor,
+        r.title,
+        r.recordDate,
+        r.amount,
+        JSON.stringify(r.referenceNumbers),
+        r.details,
+        JSON.stringify(r.attachmentNames),
+        r.sourceMessageDate,
+      ],
     );
+    const referenceText = r.referenceNumbers.map((n) => `${n.label} ${n.value}`).join(" ");
     await db.execute(
-      "DELETE FROM records WHERE account_id = $1 AND thread_id = $2",
-      [accountId, threadId],
+      `INSERT INTO records_fts (record_id, vendor, title, details, reference_text)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, r.vendor ?? "", r.title, r.details ?? "", referenceText],
     );
-    for (const r of records) {
-      const id = crypto.randomUUID();
-      await db.execute(
-        `INSERT INTO records (id, account_id, thread_id, kind, vendor, title,
-           record_date, amount, reference_numbers, details, attachment_names,
-           source_message_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [
-          id,
-          accountId,
-          threadId,
-          r.kind,
-          r.vendor,
-          r.title,
-          r.recordDate,
-          r.amount,
-          JSON.stringify(r.referenceNumbers),
-          r.details,
-          JSON.stringify(r.attachmentNames),
-          r.sourceMessageDate,
-        ],
-      );
-      const referenceText = r.referenceNumbers.map((n) => `${n.label} ${n.value}`).join(" ");
-      await db.execute(
-        `INSERT INTO records_fts (record_id, vendor, title, details, reference_text)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [id, r.vendor ?? "", r.title, r.details ?? "", referenceText],
-      );
-    }
-  });
+  }
 }
 
 export async function deleteRecord(accountId: string, recordId: string): Promise<void> {
-  await withTransaction(async (db) => {
-    await db.execute("DELETE FROM records_fts WHERE record_id = $1", [recordId]);
-    await db.execute("DELETE FROM records WHERE account_id = $1 AND id = $2", [
-      accountId,
-      recordId,
-    ]);
-  });
+  const db = await getDb();
+  await db.execute("DELETE FROM records_fts WHERE record_id = $1", [recordId]);
+  await db.execute("DELETE FROM records WHERE account_id = $1 AND id = $2", [
+    accountId,
+    recordId,
+  ]);
 }
 
 export async function listRecords(
@@ -118,6 +124,18 @@ export async function listRecords(
      ORDER BY COALESCE(record_date, source_message_date) DESC`,
     [accountId],
   );
+}
+
+export async function countThreadRecords(
+  accountId: string,
+  threadId: string,
+): Promise<number> {
+  const db = await getDb();
+  const rows = await db.select<{ count: number }[]>(
+    "SELECT COUNT(*) as count FROM records WHERE account_id = $1 AND thread_id = $2",
+    [accountId, threadId],
+  );
+  return rows[0]?.count ?? 0;
 }
 
 export async function countRecords(accountId: string): Promise<number> {

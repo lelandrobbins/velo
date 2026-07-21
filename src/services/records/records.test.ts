@@ -4,23 +4,6 @@ const mockSelect = vi.fn();
 const mockExecute = vi.fn();
 vi.mock("@/services/db/connection", () => ({
   getDb: vi.fn(() => Promise.resolve({ select: mockSelect, execute: mockExecute })),
-  // Mirrors the real withTransaction's BEGIN/COMMIT/ROLLBACK sequencing so tests
-  // can assert on it, without the cross-call queueing connection.ts adds.
-  withTransaction: vi.fn(async (fn: (db: { select: typeof mockSelect; execute: typeof mockExecute }) => Promise<void>) => {
-    const db = { select: mockSelect, execute: mockExecute };
-    await mockExecute("BEGIN TRANSACTION", []);
-    try {
-      await fn(db);
-      await mockExecute("COMMIT", []);
-    } catch (err) {
-      try {
-        await mockExecute("ROLLBACK", []);
-      } catch {
-        // ignore, mirrors real withTransaction's guard
-      }
-      throw err;
-    }
-  }),
 }));
 
 import {
@@ -28,6 +11,7 @@ import {
   deleteRecord,
   listRecords,
   countRecords,
+  countThreadRecords,
   searchRecords,
   type RecordFields,
 } from "./records";
@@ -51,39 +35,39 @@ beforeEach(() => {
 });
 
 describe("replaceThreadRecords", () => {
-  it("wraps the delete-then-insert sequence in a transaction", async () => {
+  it("runs delete-then-insert as sequential autocommit statements (no BEGIN)", async () => {
     await replaceThreadRecords("a1", "t1", [fields]);
     const sqls = mockExecute.mock.calls.map((c) => c[0] as string);
-    expect(sqls[0]).toBe("BEGIN TRANSACTION");
-    expect(sqls[1]).toContain("DELETE FROM records_fts");
-    expect(sqls[2]).toContain("DELETE FROM records");
-    expect(sqls[3]).toContain("INSERT INTO records");
-    expect(sqls[4]).toContain("INSERT INTO records_fts");
-    expect(sqls[5]).toBe("COMMIT");
+    expect(sqls[0]).toContain("DELETE FROM records_fts");
+    expect(sqls[1]).toContain("DELETE FROM records");
+    expect(sqls[2]).toContain("INSERT INTO records");
+    expect(sqls[3]).toContain("INSERT INTO records_fts");
+    // JS-side BEGIN/COMMIT is unsound on tauri-plugin-sql's pooled
+    // connections — statements can land on different connections.
+    expect(sqls).not.toContain("BEGIN TRANSACTION");
+    expect(sqls).not.toContain("COMMIT");
   });
 
   it("serializes JSON fields and flattens reference text for FTS", async () => {
     await replaceThreadRecords("a1", "t1", [fields]);
-    const insertParams = mockExecute.mock.calls[3]![1] as unknown[];
+    const insertParams = mockExecute.mock.calls[2]![1] as unknown[];
     expect(insertParams).toContain('[{"label":"Order #","value":"F-118272"}]');
     expect(insertParams).toContain('["invoice.pdf"]');
-    const ftsParams = mockExecute.mock.calls[4]![1] as unknown[];
+    const ftsParams = mockExecute.mock.calls[3]![1] as unknown[];
     expect(ftsParams).toContain("Order # F-118272");
   });
 
-  it("with no records only clears, still inside the transaction", async () => {
+  it("with no records only clears", async () => {
     await replaceThreadRecords("a1", "t1", []);
-    expect(mockExecute).toHaveBeenCalledTimes(4);
+    expect(mockExecute).toHaveBeenCalledTimes(2);
     const sqls = mockExecute.mock.calls.map((c) => c[0] as string);
     expect(sqls).toEqual([
-      "BEGIN TRANSACTION",
       expect.stringContaining("DELETE FROM records_fts"),
       expect.stringContaining("DELETE FROM records"),
-      "COMMIT",
     ]);
   });
 
-  it("rolls back the transaction when an insert rejects", async () => {
+  it("propagates a failing insert so the caller can skip its cache write and retry", async () => {
     mockExecute.mockImplementation((sql: string) => {
       if (sql.startsWith("INSERT INTO records (")) {
         return Promise.reject(new Error("insert failed"));
@@ -92,22 +76,15 @@ describe("replaceThreadRecords", () => {
     });
 
     await expect(replaceThreadRecords("a1", "t1", [fields])).rejects.toThrow("insert failed");
-
-    const sqls = mockExecute.mock.calls.map((c) => c[0] as string);
-    expect(sqls[0]).toBe("BEGIN TRANSACTION");
-    expect(sqls).toContain("ROLLBACK");
-    expect(sqls).not.toContain("COMMIT");
   });
 });
 
 describe("deleteRecord", () => {
-  it("removes the FTS row and the record row inside a transaction", async () => {
+  it("removes the FTS row and the record row", async () => {
     await deleteRecord("a1", "r1");
     const sqls = mockExecute.mock.calls.map((c) => c[0] as string);
-    expect(sqls[0]).toBe("BEGIN TRANSACTION");
-    expect(sqls[1]).toContain("DELETE FROM records_fts WHERE record_id = $1");
-    expect(sqls[2]).toContain("DELETE FROM records WHERE account_id = $1 AND id = $2");
-    expect(sqls[3]).toBe("COMMIT");
+    expect(sqls[0]).toContain("DELETE FROM records_fts WHERE record_id = $1");
+    expect(sqls[1]).toContain("DELETE FROM records WHERE account_id = $1 AND id = $2");
   });
 });
 
@@ -124,6 +101,18 @@ describe("listRecords", () => {
     const [sql, params] = mockSelect.mock.calls[0]!;
     expect(sql).toContain("kind IN ($2, $3)");
     expect(params).toEqual(["a1", "travel", "statement"]);
+  });
+});
+
+describe("countThreadRecords", () => {
+  it("counts a single thread's rows", async () => {
+    mockSelect.mockResolvedValue([{ count: 2 }]);
+    expect(await countThreadRecords("a1", "t1")).toBe(2);
+    const [sql, params] = mockSelect.mock.calls[0]!;
+    expect(sql).toContain("thread_id = $2");
+    expect(params).toEqual(["a1", "t1"]);
+    mockSelect.mockResolvedValue([]);
+    expect(await countThreadRecords("a1", "t1")).toBe(0);
   });
 });
 

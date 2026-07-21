@@ -13,13 +13,14 @@ vi.mock("./candidates", () => ({ getRecordCandidates: vi.fn() }));
 vi.mock("./extractor", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./extractor")>()),
   extractThreadRecords: vi.fn(() => Promise.resolve({ records: [], suppressed: [] })),
+  ensureThreadMaterialized: vi.fn(() => Promise.resolve(false)),
 }));
 
 import { getSetting, setSetting } from "@/services/db/settings";
 import { getAiCache } from "@/services/db/aiCache";
 import { isAiAvailable } from "@/services/ai/providerManager";
 import { getRecordCandidates } from "./candidates";
-import { extractThreadRecords } from "./extractor";
+import { extractThreadRecords, ensureThreadMaterialized } from "./extractor";
 import {
   ensureVaultFloor,
   getVaultFloor,
@@ -100,6 +101,28 @@ describe("refreshRecordExtractions", () => {
     );
     await refreshRecordExtractions("a1");
     expect(vi.mocked(extractThreadRecords)).toHaveBeenCalledTimes(RECORDS_BATCH_SIZE);
+  });
+
+  it("heals fresh candidates whose materialization is missing, without provider calls", async () => {
+    vi.mocked(getRecordCandidates).mockResolvedValue([candidate(1), candidate(2)]);
+    // t1 fresh (heal path), t2 stale (extraction path)
+    vi.mocked(getAiCache).mockImplementation((_a, threadId) =>
+      Promise.resolve(
+        threadId === "t1"
+          ? JSON.stringify({ stateKey: `${NOW - 1}:1`, records: [], suppressed: [] })
+          : null,
+      ),
+    );
+    vi.mocked(ensureThreadMaterialized).mockResolvedValue(true);
+    await refreshRecordExtractions("a1");
+    expect(vi.mocked(ensureThreadMaterialized)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ensureThreadMaterialized)).toHaveBeenCalledWith(
+      "a1", expect.objectContaining({ threadId: "t1" }),
+    );
+    expect(vi.mocked(extractThreadRecords)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(extractThreadRecords)).toHaveBeenCalledWith(
+      expect.anything(), "a1", expect.objectContaining({ threadId: "t2" }),
+    );
   });
 
   it("counts only successful extractions", async () => {

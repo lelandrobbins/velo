@@ -3,7 +3,7 @@ import { getAiCache } from "@/services/db/aiCache";
 import { getActiveProvider, isAiAvailable } from "@/services/ai/providerManager";
 import { threadStateKey } from "@/services/brief/briefWindow";
 import { getRecordCandidates } from "./candidates";
-import { extractThreadRecords, RECORDS_EXTRACT_TYPE } from "./extractor";
+import { extractThreadRecords, ensureThreadMaterialized, RECORDS_EXTRACT_TYPE } from "./extractor";
 
 const SYNC_DEBOUNCE_MS = 2000;
 const FLOOR_DAYS = 90;
@@ -39,27 +39,34 @@ export async function refreshRecordExtractions(accountId: string): Promise<numbe
   const candidates = await getRecordCandidates(accountId, floor);
 
   const stale = [];
+  const fresh = [];
   for (const c of candidates) {
-    if (stale.length >= RECORDS_BATCH_SIZE) break;
     const raw = await getAiCache(accountId, c.threadId, RECORDS_EXTRACT_TYPE);
     const expected = threadStateKey({
       last_message_at: c.lastMessageAt,
       message_count: c.messageCount,
     });
-    let fresh = false;
+    let isFresh = false;
     if (raw) {
       try {
-        fresh = (JSON.parse(raw) as { stateKey: string }).stateKey === expected;
+        isFresh = (JSON.parse(raw) as { stateKey: string }).stateKey === expected;
       } catch {
-        fresh = false;
+        isFresh = false;
       }
     }
-    if (!fresh) stale.push(c);
+    if (isFresh) fresh.push(c);
+    else if (stale.length < RECORDS_BATCH_SIZE) stale.push(c);
   }
-  if (stale.length === 0) return 0;
+
+  // Heal pass: fresh threads whose table rows went missing (a prior pass's
+  // materialization failed after its cache write) — no provider calls.
+  let refreshed = 0;
+  for (const c of fresh) {
+    if (await ensureThreadMaterialized(accountId, c)) refreshed++;
+  }
+  if (stale.length === 0) return refreshed;
 
   const provider = await getActiveProvider();
-  let refreshed = 0;
   for (const c of stale) {
     const result = await extractThreadRecords(provider, accountId, c);
     if (result) refreshed++;

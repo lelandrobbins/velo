@@ -9,6 +9,7 @@ import type { RecordCandidate } from "./candidates";
 import {
   replaceThreadRecords,
   deleteRecord,
+  countThreadRecords,
   RECORD_KINDS,
   type DbRecord,
   type RecordKind,
@@ -216,6 +217,23 @@ export async function extractThreadRecords(
     }
   }
 
+  // Materialize BEFORE the cache write: if the table write fails (e.g.
+  // "database is locked" under concurrent sync load), the stateKey stays
+  // stale and the whole thread is retried on the next pass. Writing the
+  // cache first would mark the thread done with nothing materialized.
+  try {
+    await materializeRecords(
+      accountId,
+      candidate.threadId,
+      records,
+      mergedSuppressed,
+      attachmentNamesByDate,
+    );
+  } catch (err) {
+    console.error("Record materialization failed (will retry next pass):", err);
+    return null;
+  }
+
   await setAiCache(
     accountId,
     candidate.threadId,
@@ -223,12 +241,23 @@ export async function extractThreadRecords(
     JSON.stringify({ stateKey, records, suppressed: mergedSuppressed } satisfies RecordsCacheEntry),
   );
 
+  return { records, suppressed: mergedSuppressed };
+}
+
+/** Write the unsuppressed records to the records table (delete-and-rewrite). */
+async function materializeRecords(
+  accountId: string,
+  threadId: string,
+  records: ExtractedRecord[],
+  suppressed: string[],
+  attachmentNamesByDate: Map<number, string[]>,
+): Promise<void> {
   const kept = records.filter(
-    (r) => !mergedSuppressed.includes(recordFingerprint(r.kind, r.sourceMessageDate)),
+    (r) => !suppressed.includes(recordFingerprint(r.kind, r.sourceMessageDate)),
   );
   await replaceThreadRecords(
     accountId,
-    candidate.threadId,
+    threadId,
     kept.map((r) => ({
       kind: r.kind,
       vendor: r.vendor,
@@ -241,8 +270,61 @@ export async function extractThreadRecords(
       sourceMessageDate: r.sourceMessageDate,
     })),
   );
+}
 
-  return { records, suppressed: mergedSuppressed };
+/**
+ * Heal path: a thread whose cache is fresh but whose kept records were never
+ * materialized (a prior pass's table write failed after the cache write, or
+ * the app crashed mid-write) gets re-materialized from the cache — no
+ * provider call. Returns true when rows were written.
+ */
+export async function ensureThreadMaterialized(
+  accountId: string,
+  candidate: RecordCandidate,
+): Promise<boolean> {
+  const raw = await getAiCache(accountId, candidate.threadId, RECORDS_EXTRACT_TYPE);
+  if (!raw) return false;
+
+  let cached: RecordsCacheEntry;
+  try {
+    cached = JSON.parse(raw) as RecordsCacheEntry;
+  } catch {
+    return false;
+  }
+  const stateKey = threadStateKey({
+    last_message_at: candidate.lastMessageAt,
+    message_count: candidate.messageCount,
+  });
+  if (cached.stateKey !== stateKey) return false; // stale — extraction path owns it
+
+  const records = validateRecordsExtraction({ records: cached.records });
+  if (!records) return false;
+  const suppressed = Array.isArray(cached.suppressed)
+    ? cached.suppressed.filter((s): s is string => typeof s === "string")
+    : [];
+  const kept = records.filter(
+    (r) => !suppressed.includes(recordFingerprint(r.kind, r.sourceMessageDate)),
+  );
+  if (kept.length === 0) return false;
+
+  if ((await countThreadRecords(accountId, candidate.threadId)) > 0) return false;
+
+  const messages = await getMessagesForThread(accountId, candidate.threadId);
+  const attachmentNamesByDate = new Map<number, string[]>();
+  for (const m of messages) {
+    const atts = await getAttachmentsForMessage(accountId, m.id);
+    const names = atts
+      .filter((a) => a.is_inline === 0 && a.filename)
+      .map((a) => a.filename!);
+    if (names.length > 0) {
+      attachmentNamesByDate.set(m.date, [
+        ...(attachmentNamesByDate.get(m.date) ?? []),
+        ...names,
+      ]);
+    }
+  }
+  await materializeRecords(accountId, candidate.threadId, records, suppressed, attachmentNamesByDate);
+  return true;
 }
 
 /**

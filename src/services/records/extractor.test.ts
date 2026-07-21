@@ -16,15 +16,17 @@ vi.mock("./records", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./records")>()),
   replaceThreadRecords: vi.fn(),
   deleteRecord: vi.fn(),
+  countThreadRecords: vi.fn(() => Promise.resolve(0)),
 }));
 
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
 import { getMessagesForThread } from "@/services/db/messages";
 import { getAttachmentsForMessage } from "@/services/db/attachments";
-import { replaceThreadRecords, deleteRecord } from "./records";
+import { replaceThreadRecords, deleteRecord, countThreadRecords } from "./records";
 import {
   validateRecordsExtraction,
   extractThreadRecords,
+  ensureThreadMaterialized,
   suppressRecord,
   recordFingerprint,
   RECORDS_EXTRACT_TYPE,
@@ -139,6 +141,21 @@ describe("extractThreadRecords", () => {
     const [, , written] = vi.mocked(replaceThreadRecords).mock.calls[0]!;
     expect(written).toHaveLength(1);
     expect(written[0]!.recordDate).toBe(Date.parse("2026-06-14"));
+    // materialization must come BEFORE the cache write: a failed write then
+    // leaves the stateKey stale, so the thread is retried next pass
+    expect(
+      vi.mocked(replaceThreadRecords).mock.invocationCallOrder[0]!,
+    ).toBeLessThan(vi.mocked(setAiCache).mock.invocationCallOrder[0]!);
+  });
+
+  it("does not cache when materialization fails, so the thread retries next pass", async () => {
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    vi.mocked(getMessagesForThread).mockResolvedValue([msg({})]);
+    vi.mocked(replaceThreadRecords).mockRejectedValueOnce(new Error("database is locked"));
+    const provider = { complete: vi.fn(() => Promise.resolve(goodJson)) };
+    const result = await extractThreadRecords(provider, "a1", candidate);
+    expect(result).toBeNull();
+    expect(vi.mocked(setAiCache)).not.toHaveBeenCalled();
   });
 
   it("skips materializing suppressed fingerprints", async () => {
@@ -222,6 +239,45 @@ describe("extractThreadRecords", () => {
     // and materialized rows carry the source message's attachment names
     const [, , written] = vi.mocked(replaceThreadRecords).mock.calls[0]!;
     expect(written[0]!.attachmentNames).toEqual(["invoice.pdf"]);
+  });
+});
+
+describe("ensureThreadMaterialized", () => {
+  const freshCache = JSON.stringify({ stateKey: "5000:1", records: [goodRecord], suppressed: [] });
+
+  it("re-materializes a fresh cache whose rows are missing", async () => {
+    vi.mocked(getAiCache).mockResolvedValue(freshCache);
+    vi.mocked(countThreadRecords).mockResolvedValue(0);
+    vi.mocked(getMessagesForThread).mockResolvedValue([msg({})]);
+    expect(await ensureThreadMaterialized("a1", candidate)).toBe(true);
+    const [, , written] = vi.mocked(replaceThreadRecords).mock.calls[0]!;
+    expect(written).toHaveLength(1);
+    expect(written[0]!.title).toBe("Standing desk order");
+  });
+
+  it("does nothing when rows already exist", async () => {
+    vi.mocked(getAiCache).mockResolvedValue(freshCache);
+    vi.mocked(countThreadRecords).mockResolvedValue(1);
+    expect(await ensureThreadMaterialized("a1", candidate)).toBe(false);
+    expect(vi.mocked(replaceThreadRecords)).not.toHaveBeenCalled();
+  });
+
+  it("does nothing for a stale cache (extraction path owns it)", async () => {
+    vi.mocked(getAiCache).mockResolvedValue(
+      JSON.stringify({ stateKey: "old:0", records: [goodRecord], suppressed: [] }),
+    );
+    expect(await ensureThreadMaterialized("a1", candidate)).toBe(false);
+    expect(vi.mocked(replaceThreadRecords)).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when all cached records are suppressed or absent", async () => {
+    vi.mocked(getAiCache).mockResolvedValue(
+      JSON.stringify({ stateKey: "5000:1", records: [goodRecord], suppressed: ["purchase:5000"] }),
+    );
+    expect(await ensureThreadMaterialized("a1", candidate)).toBe(false);
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    expect(await ensureThreadMaterialized("a1", candidate)).toBe(false);
+    expect(vi.mocked(replaceThreadRecords)).not.toHaveBeenCalled();
   });
 });
 
