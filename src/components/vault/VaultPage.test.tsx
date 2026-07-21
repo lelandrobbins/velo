@@ -41,7 +41,7 @@ vi.mock("@/router/navigate", () => ({
 
 import { listRecords } from "@/services/records/records";
 import { suppressRecord } from "@/services/records/extractor";
-import { askVault } from "@/services/records/ask";
+import { askVault, type AskOutcome } from "@/services/records/ask";
 import { isAiAvailable } from "@/services/ai/providerManager";
 
 describe("VaultPage", () => {
@@ -88,6 +88,29 @@ describe("VaultPage", () => {
       expect(vi.mocked(suppressRecord)).toHaveBeenCalledWith(
         "acc-1", expect.objectContaining({ id: "r1" }),
       );
+    });
+  });
+
+  it("discards a stale ask result when the active account changes before it resolves", async () => {
+    let resolveAsk: ((v: AskOutcome) => void) | undefined;
+    const pending = new Promise<AskOutcome>((resolve) => {
+      resolveAsk = resolve;
+    });
+    vi.mocked(askVault).mockReturnValue(pending);
+
+    render(<VaultPage />);
+    await screen.findByText("Standing desk order");
+    const box = screen.getByPlaceholderText(/ask your archive/i);
+    fireEvent.change(box, { target: { value: "desk order number?" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    // Switch the active account while the ask is still in flight.
+    useAccountStore.setState({ activeAccountId: "acc-2" });
+
+    resolveAsk?.({ status: "answered", answer: "Order F-118272.", sources: [purchase] });
+    await pending;
+    await waitFor(() => {
+      expect(screen.queryByText("Order F-118272.")).not.toBeInTheDocument();
     });
   });
 

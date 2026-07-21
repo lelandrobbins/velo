@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Vault,
   ShoppingBag,
@@ -83,16 +83,24 @@ export function VaultPage({ width, listRef }: { width?: number; listRef?: React.
   const [asking, setAsking] = useState(false);
   const [askResult, setAskResult] = useState<AskOutcome | null>(null);
 
+  // Guards against a stale reload/ask (e.g. in flight when the active account
+  // or filter changes) landing after a newer one already resolved — mirrors
+  // LedgerPage's ref-guard pattern.
+  const kindFilterRef = useRef(kindFilter);
+  kindFilterRef.current = kindFilter;
+
   const reload = useCallback(async () => {
     if (!activeAccountId) return;
-    const requested = activeAccountId;
+    const requestedAccountId = activeAccountId;
+    const requestedKindFilter = kindFilter;
     const kinds = kindFilter === "all" ? undefined : [kindFilter];
     const [rows, count, vaultFloor] = await Promise.all([
-      listRecords(requested, kinds),
-      countRecords(requested),
-      getVaultFloor(requested),
+      listRecords(requestedAccountId, kinds),
+      countRecords(requestedAccountId),
+      getVaultFloor(requestedAccountId),
     ]);
-    if (useAccountStore.getState().activeAccountId !== requested) return;
+    if (useAccountStore.getState().activeAccountId !== requestedAccountId) return;
+    if (kindFilterRef.current !== requestedKindFilter) return;
     setRecords(rows);
     setTotal(count);
     setFloor(vaultFloor);
@@ -153,17 +161,29 @@ export function VaultPage({ width, listRef }: { width?: number; listRef?: React.
 
   const ask = useCallback(async () => {
     if (!activeAccountId || !question.trim() || asking) return;
+    const requestedAccountId = activeAccountId;
     setAsking(true);
     setAskResult(null);
     try {
-      setAskResult(await askVault(activeAccountId, question.trim()));
+      const result = await askVault(requestedAccountId, question.trim());
+      if (useAccountStore.getState().activeAccountId !== requestedAccountId) return;
+      setAskResult(result);
     } catch (err) {
       console.error("Ask failed:", err);
+      if (useAccountStore.getState().activeAccountId !== requestedAccountId) return;
       setAskResult({ status: "bad-question" });
     } finally {
-      setAsking(false);
+      if (useAccountStore.getState().activeAccountId === requestedAccountId) setAsking(false);
     }
   }, [activeAccountId, question, asking]);
+
+  // Reset ask state when the active account changes so a stale question/answer
+  // from the previous account never lingers in view.
+  useEffect(() => {
+    setQuestion("");
+    setAskResult(null);
+    setAsking(false);
+  }, [activeAccountId]);
 
   const notARecord = useCallback(async (r: DbRecord) => {
     if (!activeAccountId) return;
@@ -260,7 +280,8 @@ export function VaultPage({ width, listRef }: { width?: number; listRef?: React.
                 onClick={() => void openThread(s.thread_id)}
                 className="text-left text-xs text-accent hover:underline truncate"
               >
-                {s.vendor ? `${s.vendor} — ${s.title}` : s.title} · {recordDateLabel(s)}
+                {s.vendor && <span className="text-text-tertiary font-normal">{s.vendor} — </span>}
+                {s.title} · {recordDateLabel(s)}
               </button>
             ))}
           </div>
