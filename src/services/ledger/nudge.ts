@@ -1,5 +1,6 @@
 import { getActiveProvider } from "@/services/ai/providerManager";
 import { useComposerStore } from "@/stores/composerStore";
+import { escapeHtml } from "@/utils/sanitize";
 import type { LedgerEntry } from "./ledger";
 
 /**
@@ -16,7 +17,7 @@ export async function draftNudge(entry: LedgerEntry): Promise<void> {
       userContent: `You are following up with ${entry.counterparty ?? "the recipient"} about "${entry.subject ?? "your earlier email"}". You have been waiting ${entry.ageDays} days. Context: ${entry.detail ?? "a reply is needed"}.`,
       maxTokens: 200,
     });
-    body = draft.trim() ? `<p>${draft.trim()}</p>` : "";
+    body = draft.trim() ? `<p>${escapeHtml(draft.trim())}</p>` : "";
   } catch (err) {
     console.error("Nudge draft failed:", err);
   }

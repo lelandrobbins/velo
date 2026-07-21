@@ -40,4 +40,12 @@ describe("draftNudge", () => {
       expect.objectContaining({ mode: "reply", threadId: "t1", bodyHtml: "" }),
     );
   });
+
+  it("escapes HTML-significant characters in the drafted body", async () => {
+    mockComplete.mockResolvedValue("Cost is <$500, ok?");
+    await draftNudge(entry);
+    const call = mockOpenComposer.mock.calls[0]![0];
+    expect(call.bodyHtml).toContain("&lt;$500");
+    expect(call.bodyHtml).not.toContain("<$500");
+  });
 });
