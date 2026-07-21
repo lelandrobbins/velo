@@ -5,6 +5,7 @@ import { EmailListSkeleton } from "../ui/Skeleton";
 import { useAccountStore } from "@/stores/accountStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useSelectedThreadId } from "@/hooks/useRouteNavigation";
 import { navigateToThread, navigateToLabel, navigateToSettings } from "@/router/navigate";
 import { isAiAvailable } from "@/services/ai/providerManager";
 import {
@@ -13,6 +14,7 @@ import {
   computeFiledToday,
   type StoredBrief,
 } from "@/services/brief/briefManager";
+import { getThreadById, getThreadLabelIds } from "@/services/db/threads";
 import type { FeedCategory } from "@/services/triage/noiseClassifier";
 
 const FIRST_RUN_SLOW_MS = 10_000;
@@ -32,6 +34,7 @@ function formatDateline(now: Date): string {
 export function BriefPage({ width, listRef }: { width?: number; listRef?: React.Ref<HTMLDivElement> }) {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const readingPanePosition = useUIStore((s) => s.readingPanePosition);
+  const selectedThreadId = useSelectedThreadId();
 
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [brief, setBrief] = useState<StoredBrief | null>(null);
@@ -64,6 +67,37 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
       setGenerating(false);
     }
   }, [activeAccountId, generating]);
+
+  // The reading pane resolves the selected thread only via threadStore's
+  // threadMap. The memo's links reference threads that were never loaded
+  // into that store (unlike HomePage's list), so hydrate the one clicked
+  // thread before navigating — mirrors ContactSidebar's handleThreadClick.
+  const handleMemoLinkClick = useCallback(async (threadId: string) => {
+    if (!activeAccountId) return;
+    const dbThread = await getThreadById(activeAccountId, threadId);
+    if (!dbThread) return;
+    const labelIds = await getThreadLabelIds(activeAccountId, threadId);
+    useThreadStore.getState().setThreads([
+      {
+        id: dbThread.id,
+        accountId: dbThread.account_id,
+        subject: dbThread.subject,
+        snippet: dbThread.snippet,
+        lastMessageAt: dbThread.last_message_at ?? 0,
+        messageCount: dbThread.message_count,
+        isRead: dbThread.is_read === 1,
+        isStarred: dbThread.is_starred === 1,
+        isPinned: dbThread.is_pinned === 1,
+        isMuted: dbThread.is_muted === 1,
+        hasAttachments: dbThread.has_attachments === 1,
+        labelIds,
+        fromName: dbThread.from_name,
+        fromAddress: dbThread.from_address,
+        listUnsubscribe: dbThread.list_unsubscribe,
+      },
+    ]);
+    navigateToThread(threadId);
+  }, [activeAccountId]);
 
   // Initial load: AI availability, cached memo, first generation if none
   useEffect(() => {
@@ -125,13 +159,18 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
   // The memo view (as opposed to the HomePage fallback branches below) renders
   // its own list, so the global threadStore must not still hold another
   // view's threads — otherwise keyboard shortcuts like Ctrl+A + e would act
-  // on invisible threads.
+  // on invisible threads. This re-runs on every brief refresh (background
+  // regen, sync), so skip the clear when the currently open thread (clicked
+  // via handleMemoLinkClick) is already hydrated — otherwise a mid-read
+  // refresh would kick the reading pane back to "Select an email to read".
   useEffect(() => {
     if (aiReady !== false && !(slowFirstRun && !brief) && !(firstRunFailed && !brief)) {
-      useThreadStore.getState().setThreads([]);
-      useThreadStore.getState().clearMultiSelect();
+      const { threadMap, setThreads, clearMultiSelect } = useThreadStore.getState();
+      if (selectedThreadId && threadMap.has(selectedThreadId)) return;
+      setThreads([]);
+      clearMultiSelect();
     }
-  }, [aiReady, slowFirstRun, firstRunFailed, brief]);
+  }, [aiReady, slowFirstRun, firstRunFailed, brief, selectedThreadId]);
 
   // No AI configured → setup card above the tabbed Home (the fallback landing view)
   if (aiReady === false) {
@@ -239,7 +278,7 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
               seg.type === "link" ? (
                 <button
                   key={i}
-                  onClick={() => navigateToThread(seg.threadId)}
+                  onClick={() => void handleMemoLinkClick(seg.threadId)}
                   className="text-accent hover:text-accent-hover underline decoration-accent/40 underline-offset-2"
                 >
                   {seg.text}
