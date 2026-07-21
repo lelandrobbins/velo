@@ -1,6 +1,7 @@
 import { getSetting, setSetting } from "@/services/db/settings";
 import { getAiCache } from "@/services/db/aiCache";
 import { getActiveProvider, isAiAvailable } from "@/services/ai/providerManager";
+import { getOwnerEmail } from "@/services/ledger/ledger";
 import { threadStateKey } from "@/services/brief/briefWindow";
 import { getRecordCandidates } from "./candidates";
 import { extractThreadRecords, ensureThreadMaterialized, RECORDS_EXTRACT_TYPE } from "./extractor";
@@ -36,7 +37,8 @@ export async function refreshRecordExtractions(accountId: string): Promise<numbe
   if (!(await isAiAvailable())) return 0;
 
   const floor = await ensureVaultFloor(accountId, Date.now());
-  const candidates = await getRecordCandidates(accountId, floor);
+  const ownerEmail = (await getOwnerEmail(accountId)) ?? "";
+  const candidates = await getRecordCandidates(accountId, ownerEmail, floor);
 
   const stale = [];
   const fresh = [];

@@ -10,6 +10,7 @@ vi.mock("@/services/ai/providerManager", () => ({
   getActiveProvider: vi.fn(() => Promise.resolve({ complete: vi.fn() })),
 }));
 vi.mock("./candidates", () => ({ getRecordCandidates: vi.fn() }));
+vi.mock("@/services/ledger/ledger", () => ({ getOwnerEmail: vi.fn(() => Promise.resolve("me@x.com")) }));
 vi.mock("./extractor", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./extractor")>()),
   extractThreadRecords: vi.fn(() => Promise.resolve({ records: [], suppressed: [] })),
@@ -79,6 +80,11 @@ describe("refreshRecordExtractions", () => {
     vi.mocked(isAiAvailable).mockResolvedValue(false);
     expect(await refreshRecordExtractions("a1")).toBe(0);
     expect(vi.mocked(getRecordCandidates)).not.toHaveBeenCalled();
+  });
+
+  it("passes the owner email into candidate selection", async () => {
+    await refreshRecordExtractions("a1");
+    expect(vi.mocked(getRecordCandidates)).toHaveBeenCalledWith("a1", "me@x.com", NOW - 90 * DAY);
   });
 
   it("extracts only stale candidates", async () => {

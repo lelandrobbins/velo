@@ -65,6 +65,16 @@ shipped, delivery, tracking, policy. Human mail never goes to
 extraction — a small-business invoice from a human sender is a known
 miss, accepted for cost control and privacy conservatism.
 
+**Amendment (2026-07-21, post-smoke-test):** the feed-only gate missed
+138 of 201 real receipt threads on a live mailbox — transactional
+senders like `auto-confirm@amazon.com` carry no List-Unsubscribe and no
+automated local-part, so the noise classifier calls them signal. The
+gate is now: record cue **and** (feed-classified **or** the latest
+sender is someone the owner has never sent mail to). The
+never-written-to test preserves the original intent — genuine human
+correspondents stay excluded — while transactional mail the classifier
+can't recognize qualifies.
+
 ### Extraction (one cached Claude call per candidate thread)
 
 Thread-level, so Claude sees an order thread's confirmation + shipping +

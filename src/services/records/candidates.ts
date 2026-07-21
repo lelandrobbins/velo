@@ -48,16 +48,45 @@ export function matchesRecordCues(subject: string | null): boolean {
   return RECORD_SUBJECT_CUES.some((cue) => s.includes(cue));
 }
 
+/** Every address in a raw recipient header ("Name <a@x>, b@y" → [a@x, b@y]). */
+export function extractAddresses(raw: string | null): string[] {
+  if (!raw) return [];
+  return (raw.match(/[^\s<>,"']+@[^\s<>,"']+/g) ?? []).map((a) => a.toLowerCase());
+}
+
+/** Lowercased set of every address the owner has ever sent mail to. */
+async function getOwnerRecipients(accountId: string, ownerEmail: string): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db.select<{ to_addresses: string | null; cc_addresses: string | null }[]>(
+    `SELECT to_addresses, cc_addresses FROM messages
+     WHERE account_id = $1 AND LOWER(from_address) = $2`,
+    [accountId, ownerEmail.toLowerCase()],
+  );
+  const recipients = new Set<string>();
+  for (const r of rows) {
+    for (const addr of extractAddresses(r.to_addresses)) recipients.add(addr);
+    for (const addr of extractAddresses(r.cc_addresses)) recipients.add(addr);
+  }
+  return recipients;
+}
+
 /**
- * Feed-classified threads since the vault floor whose subject matches a
- * record cue. Human (signal) mail never reaches extraction — a known miss
- * for e.g. a human-sent invoice, accepted for cost and privacy conservatism.
+ * Threads since the vault floor whose subject matches a record cue AND whose
+ * latest sender is either feed-classified or someone the owner has never
+ * written to. The never-written-to test is the human gate: transactional
+ * senders the noise classifier can't recognize (auto-confirm@amazon.com,
+ * bank statement aliases) still qualify, while genuine correspondents — the
+ * accountant who sends invoices — never reach extraction (decision revised
+ * from feed-only on 2026-07-21 after the strict gate missed 138/201 real
+ * receipt threads on a live mailbox).
  */
 export async function getRecordCandidates(
   accountId: string,
+  ownerEmail: string,
   floor: number,
 ): Promise<RecordCandidate[]> {
   const db = await getDb();
+  const recipients = await getOwnerRecipients(accountId, ownerEmail);
   const rows = await db.select<CandidateRow[]>(
     `SELECT t.id AS thread_id, t.subject, t.last_message_at, t.message_count,
             m.from_address, m.list_unsubscribe
@@ -74,14 +103,18 @@ export async function getRecordCandidates(
   );
 
   return rows
-    .filter(
-      (r) =>
+    .filter((r) => {
+      if (!matchesRecordCues(r.subject)) return false;
+      const isFeed =
         classifyThread({
           fromAddress: r.from_address,
           subject: r.subject,
           listUnsubscribe: r.list_unsubscribe,
-        }) === "feed" && matchesRecordCues(r.subject),
-    )
+        }) === "feed";
+      const neverWrittenTo =
+        r.from_address !== null && !recipients.has(r.from_address.toLowerCase());
+      return isFeed || neverWrittenTo;
+    })
     .map((r) => ({
       threadId: r.thread_id,
       subject: r.subject,
