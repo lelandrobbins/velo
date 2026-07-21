@@ -1,11 +1,11 @@
 import type { AiProviderClient, AiCompletionRequest } from "@/services/ai/types";
 import { getAiCache, setAiCache } from "@/services/db/aiCache";
-import { getMessagesForThread } from "@/services/db/messages";
+import { getMessagesForThread, type DbMessage } from "@/services/db/messages";
 import { truncateThreadBodies } from "@/services/brief/extractor";
 import { parseModelJson } from "@/services/brief/briefSchema";
 import { threadStateKey } from "@/services/brief/briefWindow";
 
-export const LEDGER_EXTRACT_TYPE = "ledger_extract_v1";
+export const LEDGER_EXTRACT_TYPE = "ledger_extract_v2";
 
 export interface ObligationExtraction {
   expectsReply: boolean;
@@ -42,15 +42,46 @@ export function validateObligationExtraction(value: unknown): ObligationExtracti
   };
 }
 
+/**
+ * Pair truncateThreadBodies' budgeted parts back up with their source
+ * messages to mark which ones the owner sent. Dates are unique enough per
+ * thread to match on; when a thread has multiple messages sharing the same
+ * date, fall back to matching on the from-name truncateThreadBodies kept.
+ */
+function markOwnership(
+  messages: DbMessage[],
+  parts: { from: string; date: number; body: string }[],
+  ownerEmail: string,
+): { from: string; date: number; body: string; isOwner: boolean }[] {
+  const owner = ownerEmail.toLowerCase();
+  const byDate = new Map<number, DbMessage[]>();
+  for (const m of messages) {
+    const existing = byDate.get(m.date);
+    if (existing) existing.push(m);
+    else byDate.set(m.date, [m]);
+  }
+  return parts.map((p) => {
+    const candidates = byDate.get(p.date) ?? [];
+    const match =
+      candidates.length <= 1
+        ? candidates[0]
+        : candidates.find((m) => (m.from_name ?? m.from_address ?? "unknown") === p.from);
+    const isOwner = (match?.from_address ?? "").toLowerCase() === owner;
+    return { ...p, isOwner };
+  });
+}
+
 function buildObligationRequest(
   subject: string | null,
-  parts: { from: string; date: number; body: string }[],
+  parts: { from: string; date: number; body: string; isOwner: boolean }[],
 ): AiCompletionRequest {
-  const conversation = parts.map((p) => `From: ${p.from}\n${p.body}`).join("\n---\n");
+  const conversation = parts
+    .map((p) => `From: ${p.from}${p.isOwner ? " (owner)" : ""}\n${p.body}`)
+    .join("\n---\n");
   return {
     systemPrompt: [
       "You analyze an email thread for the account owner's obligations.",
-      "The FIRST 'From' name marked (owner) is the user. Return ONLY a JSON object:",
+      "Messages from the user are marked (owner). Return ONLY a JSON object:",
       '{"expectsReply": boolean (does the owner\'s LATEST message call for an answer',
       " from the other person? FYI-only sends, thanks, and sign-offs are false),",
       ' "why": "short reason if expectsReply, else null",',
@@ -68,6 +99,7 @@ function buildObligationRequest(
 export async function extractThreadObligations(
   provider: AiProviderClient,
   accountId: string,
+  ownerEmail: string,
   candidate: { threadId: string; subject: string | null; lastMessageAt: number; messageCount: number },
 ): Promise<ObligationExtraction | null> {
   const stateKey = threadStateKey({
@@ -89,7 +121,7 @@ export async function extractThreadObligations(
   }
 
   const messages = await getMessagesForThread(accountId, candidate.threadId);
-  const parts = truncateThreadBodies(messages);
+  const parts = markOwnership(messages, truncateThreadBodies(messages), ownerEmail);
   const request = buildObligationRequest(candidate.subject, parts);
 
   let extraction = validateObligationExtraction(parseModelJson(await provider.complete(request)));

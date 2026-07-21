@@ -68,7 +68,7 @@ describe("extractThreadObligations", () => {
       JSON.stringify({ stateKey: "5000:2", extraction: JSON.parse(goodJson) }),
     );
     const provider = { complete: vi.fn(), testConnection: vi.fn() };
-    const result = await extractThreadObligations(provider, "a1", candidate);
+    const result = await extractThreadObligations(provider, "a1", "me@x.com", candidate);
     expect(result!.counterparty).toBe("Alex Chen");
     expect(provider.complete).not.toHaveBeenCalled();
   });
@@ -79,7 +79,7 @@ describe("extractThreadObligations", () => {
     );
     vi.mocked(getMessagesForThread).mockResolvedValue([msg({})]);
     const provider = { complete: vi.fn().mockResolvedValue(goodJson), testConnection: vi.fn() };
-    const result = await extractThreadObligations(provider, "a1", candidate);
+    const result = await extractThreadObligations(provider, "a1", "me@x.com", candidate);
     expect(result!.expectsReply).toBe(true);
     expect(vi.mocked(setAiCache)).toHaveBeenCalledWith(
       "a1", "t1", LEDGER_EXTRACT_TYPE,
@@ -94,9 +94,24 @@ describe("extractThreadObligations", () => {
       complete: vi.fn().mockResolvedValueOnce("nope").mockResolvedValueOnce("still nope"),
       testConnection: vi.fn(),
     };
-    const result = await extractThreadObligations(provider, "a1", candidate);
+    const result = await extractThreadObligations(provider, "a1", "me@x.com", candidate);
     expect(result).toBeNull();
     expect(provider.complete).toHaveBeenCalledTimes(2);
     expect(vi.mocked(setAiCache)).not.toHaveBeenCalled();
+  });
+
+  it("marks the owner's messages (owner) in the request sent to the provider", async () => {
+    vi.mocked(getAiCache).mockResolvedValue(null);
+    vi.mocked(getMessagesForThread).mockResolvedValue([
+      msg({ id: "m1", from_address: "me@x.com", from_name: "Me", date: 1000, body_text: "Can you confirm?" }),
+      msg({ id: "m2", from_address: "alice@example.com", from_name: "Alice", date: 2000, body_text: "Sure, confirmed." }),
+    ]);
+    const provider = { complete: vi.fn().mockResolvedValue(goodJson), testConnection: vi.fn() };
+    await extractThreadObligations(provider, "a1", "me@x.com", candidate);
+    const request = provider.complete.mock.calls[0]![0] as { userContent: string; systemPrompt: string };
+    expect(request.userContent).toContain("From: Me (owner)");
+    expect(request.userContent).toContain("From: Alice\n");
+    expect(request.userContent).not.toContain("Alice (owner)");
+    expect(request.systemPrompt).toContain("Messages from the user are marked (owner).");
   });
 });

@@ -35,7 +35,7 @@ export async function refreshLedgerExtractions(accountId: string): Promise<numbe
   const provider = await getActiveProvider();
   let refreshed = 0;
   for (const c of stale) {
-    const result = await extractThreadObligations(provider, accountId, c);
+    const result = await extractThreadObligations(provider, accountId, ownerEmail, c);
     if (result) refreshed++;
   }
   return refreshed;
