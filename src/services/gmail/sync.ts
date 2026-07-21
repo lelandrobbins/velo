@@ -328,7 +328,10 @@ export async function deltaSync(
           for (const parsed of parsedMessages) {
             if (newInboxMessageIds.has(parsed.id) && !mutedThreadIds.has(threadId)) {
               const fromAddr = parsed.fromAddress ?? undefined;
-              if (shouldNotifyForMessage(smartNotifications, vipSenders, fromAddr)) {
+              if (shouldNotifyForMessage(smartNotifications, vipSenders, fromAddr, {
+                subject: parsed.subject,
+                listUnsubscribe: parsed.listUnsubscribe,
+              })) {
                 const sender = parsed.fromName ?? parsed.fromAddress ?? "Unknown";
                 queueNewEmailNotification(
                   sender,

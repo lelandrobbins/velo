@@ -1,12 +1,23 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { getUnreadInboxCount } from "./db/threads";
+import { getUnreadInboxTriageRows } from "./db/threads";
+import { isSignalThread } from "./triage/noiseClassifier";
 
 let lastCount = -1;
 
 export async function updateBadgeCount(): Promise<void> {
   try {
-    const count = await getUnreadInboxCount();
+    // Only Focus items count toward the badge — feed-classified mail doesn't
+    const rows = await getUnreadInboxTriageRows();
+    const count = rows.filter((r) =>
+      isSignalThread({
+        isPinned: r.is_pinned === 1,
+        isStarred: r.is_starred === 1,
+        fromAddress: r.from_address,
+        subject: r.subject,
+        listUnsubscribe: r.list_unsubscribe,
+      }),
+    ).length;
     if (count === lastCount) return;
     lastCount = count;
 
