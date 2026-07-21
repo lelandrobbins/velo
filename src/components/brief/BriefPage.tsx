@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, RefreshCw, Sparkles } from "lucide-react";
 import { HomePage } from "../home/HomePage";
 import { EmailListSkeleton } from "../ui/Skeleton";
 import { useAccountStore } from "@/stores/accountStore";
@@ -38,6 +38,7 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
   const [filed, setFiled] = useState<Record<FeedCategory, number>>({ calendar: 0, fyi: 0, junk: 0 });
   const [generating, setGenerating] = useState(false);
   const [slowFirstRun, setSlowFirstRun] = useState(false);
+  const [firstRunFailed, setFirstRunFailed] = useState(false);
   const attemptedAccountRef = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -68,6 +69,7 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
   useEffect(() => {
     let cancelled = false;
     setSlowFirstRun(false);
+    setFirstRunFailed(false);
     (async () => {
       const ready = await isAiAvailable();
       if (cancelled) return;
@@ -81,9 +83,13 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
         setGenerating(true);
         try {
           const fresh = await generateBrief(activeAccountId);
-          if (!cancelled && fresh) setBrief(fresh);
+          if (!cancelled) {
+            if (fresh) setBrief(fresh);
+            else setFirstRunFailed(true);
+          }
         } catch (err) {
           console.error("Initial brief generation failed:", err);
+          if (!cancelled) setFirstRunFailed(true);
         } finally {
           clearTimeout(slowTimer);
           if (!cancelled) setGenerating(false);
@@ -121,11 +127,11 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
   // view's threads — otherwise keyboard shortcuts like Ctrl+A + e would act
   // on invisible threads.
   useEffect(() => {
-    if (aiReady !== false && !(slowFirstRun && !brief)) {
+    if (aiReady !== false && !(slowFirstRun && !brief) && !(firstRunFailed && !brief)) {
       useThreadStore.getState().setThreads([]);
       useThreadStore.getState().clearMultiSelect();
     }
-  }, [aiReady, slowFirstRun, brief]);
+  }, [aiReady, slowFirstRun, firstRunFailed, brief]);
 
   // No AI configured → setup card above the tabbed Home (the fallback landing view)
   if (aiReady === false) {
@@ -143,6 +149,30 @@ export function BriefPage({ width, listRef }: { width?: number; listRef?: React.
               <span className="font-medium text-text-primary">Set up your Brief.</span>{" "}
               Add an AI provider key in Settings and Velo will open with a morning memo
               of what actually needs you.
+            </span>
+          </button>
+        }
+      />
+    );
+  }
+
+  // First generation failed outright (e.g. a configured provider key is
+  // invalid) → tabs with an error note and a way to fix it, instead of a
+  // skeleton that never resolves
+  if (firstRunFailed && !brief) {
+    return (
+      <HomePage
+        width={width}
+        listRef={listRef}
+        banner={
+          <button
+            onClick={() => navigateToSettings("ai")}
+            className="mx-4 mt-3 px-4 py-3 rounded-lg bg-warning/10 text-left flex items-center gap-3 hover:bg-warning/20 transition-colors"
+          >
+            <AlertTriangle size={16} className="text-warning shrink-0" />
+            <span className="text-xs text-text-secondary">
+              <span className="font-medium text-text-primary">Couldn&apos;t write your brief.</span>{" "}
+              Check your AI provider settings. It will retry on the next sync.
             </span>
           </button>
         }
