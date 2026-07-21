@@ -55,8 +55,8 @@ const CALENDAR_SUBJECT_PREFIXES = [
   "cancelled event:",
 ];
 
-function isAutomatedSender(fromAddress: string): boolean {
-  const localPart = fromAddress.split("@")[0]?.toLowerCase() ?? "";
+export function isAutomatedAddress(address: string): boolean {
+  const localPart = address.split("@")[0]?.toLowerCase() ?? "";
   return AUTOMATED_LOCAL_PREFIXES.some(
     (prefix) =>
       localPart === prefix ||
@@ -82,7 +82,7 @@ function isCalendarThread(fromAddress: string | null, subject: string | null): b
 
 export function classifyThread(input: ClassifierInput): ThreadClass {
   if (input.listUnsubscribe) return "feed";
-  if (input.fromAddress && isAutomatedSender(input.fromAddress)) return "feed";
+  if (input.fromAddress && isAutomatedAddress(input.fromAddress)) return "feed";
   if (isCalendarThread(input.fromAddress, input.subject)) return "feed";
   return "signal";
 }
