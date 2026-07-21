@@ -13,6 +13,10 @@ vi.mock("@/services/ledger/ledger", () => ({
   getLedger: vi.fn(() => Promise.resolve({ waitingOn: [waitingEntry], promises: [] })),
 }));
 vi.mock("@/services/ledger/nudge", () => ({ draftNudge: vi.fn() }));
+const mockComposerState = { isOpen: false };
+vi.mock("@/stores/composerStore", () => ({
+  useComposerStore: { getState: () => mockComposerState },
+}));
 vi.mock("@/services/db/ledgerOverrides", () => ({ setLedgerOverride: vi.fn() }));
 vi.mock("@/services/db/threads", () => ({
   getThreadById: vi.fn(() => Promise.resolve(undefined)),
@@ -27,6 +31,7 @@ import { draftNudge } from "@/services/ledger/nudge";
 describe("LedgerPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockComposerState.isOpen = false;
     useAccountStore.setState({
       accounts: [{ id: "acc-1", email: "me@x.com", displayName: null, avatarUrl: null, isActive: true }],
       activeAccountId: "acc-1",
@@ -53,5 +58,14 @@ describe("LedgerPage", () => {
     await screen.findByText("Alice Chen");
     fireEvent.click(screen.getByTitle("Nudge — draft a follow-up"));
     expect(vi.mocked(draftNudge)).toHaveBeenCalledWith(expect.objectContaining({ threadId: "t1" }));
+  });
+
+  it("ignores list keys while the composer is open", async () => {
+    render(<LedgerPage />);
+    await screen.findByText("Alice Chen");
+    fireEvent.keyDown(window, { key: "j" }); // focus the first row
+    mockComposerState.isOpen = true;
+    fireEvent.keyDown(window, { key: "d" });
+    expect(vi.mocked(setLedgerOverride)).not.toHaveBeenCalled();
   });
 });

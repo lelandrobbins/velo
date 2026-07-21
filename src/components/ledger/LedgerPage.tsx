@@ -3,6 +3,7 @@ import { Hourglass, HandHeart, Pin, Send, Check, X } from "lucide-react";
 import { EmptyState } from "../ui/EmptyState";
 import { GenericEmptyIllustration } from "../ui/illustrations";
 import { useAccountStore } from "@/stores/accountStore";
+import { useComposerStore } from "@/stores/composerStore";
 import { useThreadStore } from "@/stores/threadStore";
 import { useUIStore } from "@/stores/uiStore";
 import { navigateToThread } from "@/router/navigate";
@@ -137,6 +138,7 @@ export function LedgerPage({ width, listRef }: { width?: number; listRef?: React
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (useComposerStore.getState().isOpen) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
