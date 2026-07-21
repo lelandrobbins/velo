@@ -46,6 +46,7 @@ import {
 } from "./services/attachments/preCacheManager";
 import { startBriefManager, stopBriefManager } from "./services/brief/briefManager";
 import { startLedgerManager, stopLedgerManager } from "./services/ledger/ledgerManager";
+import { startRecordsManager, stopRecordsManager } from "./services/records/recordsManager";
 import {
   startUpdateChecker,
   stopUpdateChecker,
@@ -303,6 +304,7 @@ export default function App() {
 
         startBriefManager(() => useAccountStore.getState().activeAccountId);
         startLedgerManager(() => useAccountStore.getState().activeAccountId);
+        startRecordsManager(() => useAccountStore.getState().activeAccountId);
 
         // Start snooze, scheduled send, and queue checkers
         startSnoozeChecker();
@@ -341,6 +343,7 @@ export default function App() {
       stopPreCacheManager();
       stopBriefManager();
       stopLedgerManager();
+      stopRecordsManager();
       stopUpdateChecker();
       unregisterComposeShortcut();
       deepLinkCleanupRef.current?.();

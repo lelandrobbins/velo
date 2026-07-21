@@ -4,6 +4,7 @@ import { ReadingPane } from "./ReadingPane";
 import { HomePage } from "@/components/home/HomePage";
 import { BriefPage } from "@/components/brief/BriefPage";
 import { LedgerPage } from "@/components/ledger/LedgerPage";
+import { VaultPage } from "@/components/vault/VaultPage";
 import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -12,6 +13,7 @@ const VIEW_COMPONENTS: Record<string, typeof EmailList> = {
   brief: BriefPage,
   home: HomePage,
   ledger: LedgerPage,
+  vault: VaultPage,
 };
 
 function ResizableEmailLayout() {
