@@ -1,4 +1,4 @@
-import { getDb } from "@/services/db/connection";
+import { getDb, withTransaction } from "@/services/db/connection";
 
 export type RecordKind = "purchase" | "travel" | "statement" | "appointment";
 export const RECORD_KINDS: RecordKind[] = ["purchase", "travel", "statement", "appointment"];
@@ -48,54 +48,56 @@ export async function replaceThreadRecords(
   threadId: string,
   records: RecordFields[],
 ): Promise<void> {
-  const db = await getDb();
-  await db.execute(
-    `DELETE FROM records_fts WHERE record_id IN
-       (SELECT id FROM records WHERE account_id = $1 AND thread_id = $2)`,
-    [accountId, threadId],
-  );
-  await db.execute(
-    "DELETE FROM records WHERE account_id = $1 AND thread_id = $2",
-    [accountId, threadId],
-  );
-  for (const r of records) {
-    const id = crypto.randomUUID();
+  await withTransaction(async (db) => {
     await db.execute(
-      `INSERT INTO records (id, account_id, thread_id, kind, vendor, title,
-         record_date, amount, reference_numbers, details, attachment_names,
-         source_message_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [
-        id,
-        accountId,
-        threadId,
-        r.kind,
-        r.vendor,
-        r.title,
-        r.recordDate,
-        r.amount,
-        JSON.stringify(r.referenceNumbers),
-        r.details,
-        JSON.stringify(r.attachmentNames),
-        r.sourceMessageDate,
-      ],
+      `DELETE FROM records_fts WHERE record_id IN
+         (SELECT id FROM records WHERE account_id = $1 AND thread_id = $2)`,
+      [accountId, threadId],
     );
-    const referenceText = r.referenceNumbers.map((n) => `${n.label} ${n.value}`).join(" ");
     await db.execute(
-      `INSERT INTO records_fts (record_id, vendor, title, details, reference_text)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, r.vendor ?? "", r.title, r.details ?? "", referenceText],
+      "DELETE FROM records WHERE account_id = $1 AND thread_id = $2",
+      [accountId, threadId],
     );
-  }
+    for (const r of records) {
+      const id = crypto.randomUUID();
+      await db.execute(
+        `INSERT INTO records (id, account_id, thread_id, kind, vendor, title,
+           record_date, amount, reference_numbers, details, attachment_names,
+           source_message_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          id,
+          accountId,
+          threadId,
+          r.kind,
+          r.vendor,
+          r.title,
+          r.recordDate,
+          r.amount,
+          JSON.stringify(r.referenceNumbers),
+          r.details,
+          JSON.stringify(r.attachmentNames),
+          r.sourceMessageDate,
+        ],
+      );
+      const referenceText = r.referenceNumbers.map((n) => `${n.label} ${n.value}`).join(" ");
+      await db.execute(
+        `INSERT INTO records_fts (record_id, vendor, title, details, reference_text)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, r.vendor ?? "", r.title, r.details ?? "", referenceText],
+      );
+    }
+  });
 }
 
 export async function deleteRecord(accountId: string, recordId: string): Promise<void> {
-  const db = await getDb();
-  await db.execute("DELETE FROM records_fts WHERE record_id = $1", [recordId]);
-  await db.execute("DELETE FROM records WHERE account_id = $1 AND id = $2", [
-    accountId,
-    recordId,
-  ]);
+  await withTransaction(async (db) => {
+    await db.execute("DELETE FROM records_fts WHERE record_id = $1", [recordId]);
+    await db.execute("DELETE FROM records WHERE account_id = $1 AND id = $2", [
+      accountId,
+      recordId,
+    ]);
+  });
 }
 
 export async function listRecords(
