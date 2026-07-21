@@ -70,6 +70,7 @@ export function ContactSidebar({ email, name, accountId, onClose }: ContactSideb
       labelIds,
       fromName: dbThread.from_name,
       fromAddress: dbThread.from_address,
+      listUnsubscribe: dbThread.list_unsubscribe,
     };
     setThreads([...threads, mapped]);
     navigateToThread(threadId);

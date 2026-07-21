@@ -206,6 +206,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
           labelIds,
           fromName: t.from_name,
           fromAddress: t.from_address,
+          listUnsubscribe: t.list_unsubscribe,
         };
       }),
     );
