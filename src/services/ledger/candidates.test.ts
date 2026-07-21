@@ -6,7 +6,7 @@ vi.mock("@/services/db/connection", () => ({
   getDb: vi.fn(() => Promise.resolve({ select: mockSelect })),
 }));
 
-import { getLedgerCandidates, CANDIDATE_CAP } from "./candidates";
+import { getLedgerCandidates, CANDIDATE_CAP, extractFirstAddress } from "./candidates";
 
 const NOW = 1_800_000_000_000;
 
@@ -19,6 +19,7 @@ function row(overrides: Record<string, unknown>) {
     owner_last_sent_at: NOW - 1000,
     last_from_address: "me@x.com",
     counterparty_address: "alice@example.com",
+    fallback_to_addresses: null,
     counterparty_name: "Alice",
     ...overrides,
   };
@@ -61,5 +62,51 @@ describe("getLedgerCandidates", () => {
     expect(sql).toContain("LIMIT");
     expect(params).toContain(NOW - 30 * 24 * 3_600_000);
     expect(params).toContain(CANDIDATE_CAP);
+  });
+
+  it("drops the candidate when counterparty_address is null and the fallback To header is automated", async () => {
+    mockSelect.mockResolvedValue([
+      row({
+        thread_id: "t5",
+        counterparty_address: null,
+        fallback_to_addresses: "No Reply <noreply@github.com>",
+      }),
+    ]);
+    const result = await getLedgerCandidates("a1", "me@x.com", NOW);
+    expect(result).toHaveLength(0);
+  });
+
+  it("falls back to the parsed To header address when counterparty_address is null", async () => {
+    mockSelect.mockResolvedValue([
+      row({
+        thread_id: "t6",
+        counterparty_address: null,
+        fallback_to_addresses: "Alice <alice@example.com>",
+      }),
+    ]);
+    const result = await getLedgerCandidates("a1", "me@x.com", NOW);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.counterpartyAddress).toBe("alice@example.com");
+  });
+});
+
+describe("extractFirstAddress", () => {
+  it("returns a bare address unchanged", () => {
+    expect(extractFirstAddress("alice@example.com")).toBe("alice@example.com");
+  });
+
+  it("extracts the first bracketed address from a multi-recipient header", () => {
+    expect(
+      extractFirstAddress("Alice Smith <alice@example.com>, Bob <b@y.com>"),
+    ).toBe("alice@example.com");
+  });
+
+  it("handles a quoted display name containing a comma", () => {
+    expect(extractFirstAddress('"Smith, Alice" <a@x.com>')).toBe("a@x.com");
+  });
+
+  it("returns null for null or empty input", () => {
+    expect(extractFirstAddress(null)).toBeNull();
+    expect(extractFirstAddress("")).toBeNull();
   });
 });
