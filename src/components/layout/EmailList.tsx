@@ -9,7 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useActiveLabel, useSelectedThreadId } from "@/hooks/useRouteNavigation";
 import { navigateToThread } from "@/router/navigate";
 import { getThreadsForAccount, getThreadLabelIds, deleteThread as deleteThreadFromDb } from "@/services/db/threads";
-import { getActiveFollowUpThreadIds } from "@/services/db/followUpReminders";
+import { getPinnedThreadIds } from "@/services/db/ledgerOverrides";
 import { getGmailClient } from "@/services/gmail/tokenManager";
 import { useLabelStore } from "@/stores/labelStore";
 import { useContextMenuStore } from "@/stores/contextMenuStore";
@@ -291,7 +291,7 @@ export function EmailList({ width, listRef }: { width?: number; listRef?: React.
       return;
     }
 
-    getActiveFollowUpThreadIds(activeAccountId, threadIds)
+    getPinnedThreadIds(activeAccountId, threadIds)
       .then((result) => {
         if (!cancelled) setFollowUpThreadIds(result);
       })

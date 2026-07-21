@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { classifyThread, categorizeFeedThread, isSignalThread } from "./noiseClassifier";
+import { classifyThread, categorizeFeedThread, isSignalThread, isAutomatedAddress } from "./noiseClassifier";
 
 const base = { fromAddress: null, subject: null, listUnsubscribe: null };
+
+describe("isAutomatedAddress", () => {
+  it("flags no-reply style addresses and passes humans", () => {
+    expect(isAutomatedAddress("noreply@github.com")).toBe(true);
+    expect(isAutomatedAddress("alice@example.com")).toBe(false);
+  });
+});
 
 describe("classifyThread", () => {
   it("classifies plain human mail as signal", () => {

@@ -12,7 +12,7 @@ import { SnoozeDialog } from "./SnoozeDialog";
 import { FollowUpDialog } from "./FollowUpDialog";
 import { Archive, Trash2, MailOpen, Mail, Star, Clock, Ban, Pin, MailMinus, BellRing, VolumeX, Reply, ReplyAll, Forward, FolderInput, Printer, Download, ExternalLink, PanelRightClose, PanelRightOpen } from "lucide-react";
 import type { DbMessage } from "@/services/db/messages";
-import { insertFollowUpReminder, getFollowUpForThread, cancelFollowUpForThread } from "@/services/db/followUpReminders";
+import { setLedgerOverride, getPinnedThreadIds, clearLedgerOverride } from "@/services/db/ledgerOverrides";
 import { Button } from "@/components/ui/Button";
 
 interface ActionBarProps {
@@ -48,8 +48,8 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   // Check if thread has an active follow-up reminder
   useEffect(() => {
     if (!activeAccountId) return;
-    getFollowUpForThread(activeAccountId, thread.id)
-      .then((r) => setHasFollowUp(r !== null))
+    getPinnedThreadIds(activeAccountId, [thread.id])
+      .then((r) => setHasFollowUp(r.has(thread.id)))
       .catch(() => setHasFollowUp(false));
   }, [activeAccountId, thread.id]);
 
@@ -180,9 +180,8 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   const handleFollowUp = async (remindAt: number) => {
     if (!activeAccountId || !messages || messages.length === 0) return;
     setShowFollowUp(false);
-    const lastMsg = messages[messages.length - 1]!;
     try {
-      await insertFollowUpReminder(activeAccountId, thread.id, lastMsg.id, remindAt);
+      await setLedgerOverride(activeAccountId, thread.id, "waiting", "pinned", remindAt);
       setHasFollowUp(true);
     } catch (err) {
       console.error("Failed to set follow-up reminder:", err);
@@ -192,7 +191,7 @@ export function ActionBar({ thread, messages, noReply, defaultReplyMode = "reply
   const handleCancelFollowUp = async () => {
     if (!activeAccountId) return;
     try {
-      await cancelFollowUpForThread(activeAccountId, thread.id);
+      await clearLedgerOverride(activeAccountId, thread.id, "waiting");
       setHasFollowUp(false);
     } catch (err) {
       console.error("Failed to cancel follow-up:", err);

@@ -1,5 +1,6 @@
 import type { AiProviderClient, AiCompletionRequest } from "@/services/ai/types";
 import type { FeedCategory } from "@/services/triage/noiseClassifier";
+import type { ObligationLine } from "@/services/ledger/obligationLines";
 import type { ThreadExtraction } from "./briefSchema";
 
 export interface ManifestEntry {
@@ -26,6 +27,7 @@ export function buildComposeRequest(
   entries: ManifestEntry[],
   feed: FeedMention[],
   dateLabel: string,
+  obligations: ObligationLine[],
 ): AiCompletionRequest {
   const threadLines = entries.map((e) => {
     const x = e.extraction;
@@ -49,6 +51,7 @@ export function buildComposeRequest(
       "Reference a thread ONLY as [natural phrase](thread:THREAD_ID), using ids",
       "from the provided list. Format is exactly [text](thread:THREAD_ID).",
       "Never mention a thread id in plain text. Never invent facts not in the input.",
+      "Obligations may be woven in naturally where they matter; do not enumerate them all.",
     ].join("\n"),
     userContent: [
       `Date: ${dateLabel}`,
@@ -58,6 +61,11 @@ export function buildComposeRequest(
       "",
       "Feed arrivals today (metadata only):",
       feedLines.length ? feedLines.join("\n") : "(none)",
+      "",
+      "Obligations (id :: fact):",
+      obligations.length
+        ? obligations.map((o) => `- id=${o.threadId} :: ${o.line}`).join("\n")
+        : "(none)",
     ].join("\n"),
     maxTokens: 400,
   };
@@ -184,12 +192,16 @@ export async function composeMemo(
   entries: ManifestEntry[],
   feed: FeedMention[],
   dateLabel: string,
+  obligations: ObligationLine[],
 ): Promise<{ memo: string; blocks: MemoBlock[] } | null> {
-  const request = buildComposeRequest(entries, feed, dateLabel);
+  const request = buildComposeRequest(entries, feed, dateLabel, obligations);
   const memo = (await provider.complete(request)).trim();
   if (!memo) return null;
 
-  const validIds = new Set(entries.map((e) => e.threadId));
+  const validIds = new Set([
+    ...entries.map((e) => e.threadId),
+    ...obligations.map((o) => o.threadId),
+  ]);
   const { blocks, totalLinks, invalidLinks } = parseMemoBlocks(memo, validIds);
   if (!memoIsAcceptable(totalLinks, invalidLinks)) return null;
   return { memo, blocks };

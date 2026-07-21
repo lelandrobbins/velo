@@ -228,6 +228,9 @@ async function executeAction(actionId: string): Promise<void> {
     case "nav.goHome":
       navigateToLabel("brief");
       break;
+    case "nav.goLedger":
+      navigateToLabel("ledger");
+      break;
     case "action.archiveAllFeed":
       window.dispatchEvent(new Event("velo-archive-all-feed"));
       break;
