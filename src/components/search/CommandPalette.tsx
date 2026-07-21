@@ -41,6 +41,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
   const commands: Command[] = useMemo(() => [
     // Navigation
+    { id: "go-home", label: "Go to Home", shortcut: "g h", category: "Navigation", action: () => { navigateToLabel("home"); onClose(); } },
     { id: "go-inbox", label: "Go to Inbox", shortcut: "g i", category: "Navigation", action: () => { navigateToLabel("inbox"); onClose(); } },
     { id: "go-starred", label: "Go to Starred", shortcut: "g s", category: "Navigation", action: () => { navigateToLabel("starred"); onClose(); } },
     { id: "go-sent", label: "Go to Sent", shortcut: "g t", category: "Navigation", action: () => { navigateToLabel("sent"); onClose(); } },

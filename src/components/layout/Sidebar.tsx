@@ -10,6 +10,7 @@ import { useContextMenuStore } from "@/stores/contextMenuStore";
 import { useActiveLabel } from "@/hooks/useRouteNavigation";
 import { navigateToLabel } from "@/router/navigate";
 import {
+  Home,
   Inbox,
   Star,
   Clock,
@@ -36,6 +37,7 @@ interface SidebarProps {
 }
 
 export const ALL_NAV_ITEMS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "home", label: "Home", icon: Home },
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "starred", label: "Starred", icon: Star },
   { id: "snoozed", label: "Snoozed", icon: Clock },
@@ -191,9 +193,12 @@ export function Sidebar({ collapsed, onAddAccount }: SidebarProps) {
         result.push(itemMap.get(entry.id)!);
       }
     }
-    // Append any new items not present in the saved config
+    // Append any new items not present in the saved config (Home pins to the top)
     for (const item of ALL_NAV_ITEMS) {
-      if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) result.push(item);
+      if (!seen.has(item.id) && !SECTION_IDS.has(item.id)) {
+        if (item.id === "home") result.unshift(item);
+        else result.push(item);
+      }
     }
     return { visibleNavItems: result, showLabels: labelsVisible };
   }, [sidebarNavConfig]);

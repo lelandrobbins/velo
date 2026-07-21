@@ -225,6 +225,12 @@ async function executeAction(actionId: string): Promise<void> {
       }
       break;
     }
+    case "nav.goHome":
+      navigateToLabel("home");
+      break;
+    case "action.archiveAllFeed":
+      window.dispatchEvent(new Event("velo-archive-all-feed"));
+      break;
     case "nav.goInbox":
       navigateToLabel("inbox");
       break;

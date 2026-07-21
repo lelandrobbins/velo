@@ -29,12 +29,12 @@ export const rootRoute = createRootRoute({
   component: App,
 });
 
-// ---------- / (index) → redirect to /mail/inbox ----------
+// ---------- / (index) → redirect to /mail/home ----------
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: () => {
-    throw redirect({ to: "/mail/$label", params: { label: "inbox" } });
+    throw redirect({ to: "/mail/$label", params: { label: "home" } });
   },
 });
 
